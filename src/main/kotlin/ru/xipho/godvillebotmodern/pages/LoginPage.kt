@@ -1,4 +1,4 @@
-package ru.xipho.godvillebotmodern.api.bot.pages
+package ru.xipho.godvillebotmodern.pages
 
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
@@ -6,7 +6,7 @@ import org.openqa.selenium.support.FindBy
 import org.openqa.selenium.support.PageFactory
 
 class LoginPage(
-    private val driver: WebDriver
+    driver: WebDriver
 ) {
 
     @FindBy(css = "input[id='username']")

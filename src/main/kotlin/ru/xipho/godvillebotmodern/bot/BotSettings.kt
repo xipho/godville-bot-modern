@@ -1,4 +1,4 @@
-package ru.xipho.godvillebotmodern.api.bot
+package ru.xipho.godvillebotmodern.bot
 
 data class BotSettings(
     val headless: Boolean,
