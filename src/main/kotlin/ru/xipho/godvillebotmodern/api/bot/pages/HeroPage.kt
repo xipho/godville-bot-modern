@@ -91,4 +91,51 @@ class HeroPage(
             false
         }
     }
+
+    enum class PageAction {
+        MAKE_GOOD,
+        MAKE_BAD,
+    }
+
+    private fun checkPranaAndDoAction(
+        action: PageAction
+    ): Boolean {
+        val actionElement = when(action) {
+            PageAction.MAKE_BAD -> badLink
+            PageAction.MAKE_GOOD -> goodLink
+        }
+        val currentPrana = getCurrentPrana()
+        return if (currentPrana > 25) {
+            actionElement.click()
+            true
+        } else {
+            logger.warn("Not enough prana level to $action")
+            false
+        }
+    }
+
+    fun makeBad(): Boolean {
+        val currentPrana = getCurrentPrana()
+        return if (currentPrana > 25) {
+            badLink.click()
+            true
+        } else {
+            logger.warn("Not enough prana level to make bad! $currentPrana")
+            false
+        }
+    }
+
+    fun extractPrana(): Boolean {
+        val pranaInAccumulator = getAccum()
+        return if (pranaInAccumulator > 0) {
+            fillPranaLink.click()
+            logger.trace("Extracted prana from accumulator")
+            true
+        } else {
+            logger.warn("Failed to extract prana - value in accum: $pranaInAccumulator")
+            false
+        }
+    }
+
+
 }
