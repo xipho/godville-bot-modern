@@ -2,6 +2,7 @@ package ru.xipho.godvillebotmodern.bot
 
 import io.github.bonigarcia.wdm.WebDriverManager
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.*
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
@@ -9,12 +10,16 @@ import org.openqa.selenium.firefox.FirefoxProfile
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import ru.xipho.godvillebotmodern.bot.events.BotEvent
+import ru.xipho.godvillebotmodern.bot.events.BotEventListener
 import ru.xipho.godvillebotmodern.pages.HeroPage
 import ru.xipho.godvillebotmodern.pages.LoginPage
 import ru.xipho.godvillebotmodern.repo.ConfigRepo
 import java.time.Duration
 import java.time.LocalDateTime
+import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.EmptyCoroutineContext
 
 @Component
 class Bot(
@@ -36,6 +41,8 @@ class Bot(
         private const val heroPage: String = "/superhero"
         private val logger = LoggerFactory.getLogger(Bot::class.java)
     }
+
+    private val botEventListeners: MutableList<BotEventListener> = mutableListOf()
 
     private val botSettings: BotSettings
     private val driver: WebDriver
@@ -138,10 +145,10 @@ class Bot(
         val petOk = page.isPetOk()
         if (!petOk) {
             val money = page.getMoney()
-            // TODO сделать отправку нотификации о том, что питомец контужен
+            onBotEvent("WARNING! The pet is down and needs to heal!")
             val neededMoney = page.getNeededForPetRessurrectMoney()
-            if (money > neededMoney) {
-                // TODO сделать отправку нотификации, что денег для лечения пета достаточно
+            if (money >= neededMoney) {
+                onBotEvent("You have enough money to heal pet now!")
             }
         }
     }
@@ -165,7 +172,7 @@ class Bot(
     private fun isPranaAccumulatorEmpty(page: HeroPage): Boolean {
         val pranaInAccum = page.getAccum()
         return if (pranaInAccum <= 0) {
-            // TODO notify to refill prana accumulator
+            onBotEvent("No prana in accumulator left! Please refill")
             logger.warn("No prana in accumulator left!")
             true
         } else {
@@ -201,6 +208,28 @@ class Bot(
         runState.set(RunState.HALTED)
     }
 
+    fun subscribeToBotEvent(listener: BotEventListener) {
+        if (botEventListeners.indexOf(listener) != -1) {
+            return
+        }
+        botEventListeners.add(listener)
+        logger.info("New bot event listener subscribed: ${listener.javaClass}")
+    }
+
+    fun unsubscribeFromBotEvent(listener: BotEventListener) {
+        botEventListeners.remove(listener)
+        logger.info("Bot event listener unsubscribed: ${listener.javaClass}")
+    }
+
+    private fun onBotEvent(message: String) {
+        val event = BotEvent(message)
+        BotScope.launch {
+            botEventListeners.forEach {
+                launch { it.invoke(event) }
+            }
+        }
+    }
+
     @PreDestroy
     fun tearDown() {
         runState.set(RunState.SHUTDOWN)
@@ -213,5 +242,13 @@ class Bot(
         RUNNING,
         SHUTDOWN,
         HALTED
+    }
+
+    object BotScope : CoroutineScope {
+        override val coroutineContext = EmptyCoroutineContext +
+                ForkJoinPool.commonPool().asCoroutineDispatcher() +
+                CoroutineExceptionHandler { context, exception ->
+                    logger.error(context.toString(), exception)
+                } + CoroutineName("Bot")
     }
 }
