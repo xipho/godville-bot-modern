@@ -5,7 +5,6 @@ data class BotSettings(
     val checkPeriod: Int,
     val checkHealth: Boolean,
     val checkPet: Boolean,
-    val healthWarnThreshold: Int,
     val allowPranaExtract: Boolean,
     val maxPranaExtractPerDay: Int,
     val maxPranaExtractPerHour: Int,

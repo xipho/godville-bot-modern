@@ -4,6 +4,7 @@ import org.openqa.selenium.By
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
 import org.openqa.selenium.support.FindBy
+import org.openqa.selenium.support.PageFactory
 import org.slf4j.LoggerFactory
 
 class HeroPage(
@@ -15,6 +16,9 @@ class HeroPage(
     }
     private val healthElement: WebElement
         get() = driver.findElement(By.cssSelector("div[id$='health'] div[class='l_val']"))
+
+    private val healthBarElement: WebElement
+        get() = driver.findElement(By.cssSelector("#hk_health div[class$='p_bar']"))
 
     private val moneyElement: WebElement
         get() = driver.findElement(By.cssSelector("div[id*='gold'] div[class$='val']"))
@@ -50,10 +54,21 @@ class HeroPage(
     private lateinit var prana: WebElement
 
     private val moneyRegex = """.*\s(\d+)\s.*""".toRegex()
+    private val healthBarPercentRegex = """.*\s(\d+)%.*""".toRegex()
+
+    init {
+        PageFactory.initElements(driver, this)
+    }
 
     fun getHealth(): Int {
         val health = healthElement.text.split(" / ")[0]
         logger.trace("Hero's healths: $health")
+        return health.toInt()
+    }
+
+    fun getHealthPercent(): Int {
+        val health = healthBarElement.getAttribute("title").replace(healthBarPercentRegex, "$1")
+        logger.trace("Hero's health in percents is: $health")
         return health.toInt()
     }
 
@@ -72,6 +87,7 @@ class HeroPage(
 
     fun getAccum(): Int {
         return try {
+            logger.trace("Prana in accumulator ${pranaAccum.text}")
             pranaAccum.text.toInt()
         } catch (e: Exception) {
             logger.error("Failed to read prana accum value!", e)
@@ -88,6 +104,7 @@ class HeroPage(
 
     fun getCurrentPrana(): Int {
         return try {
+            logger.trace("Current Prana level ${prana.text}")
             prana.text.replace("%", "").toInt()
         } catch (e: Exception) {
             logger.error("Unable to read current prana level!", e)

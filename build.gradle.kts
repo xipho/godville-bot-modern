@@ -15,12 +15,15 @@ java.sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
 	mavenCentral()
+	maven { url = uri("https://repo.spring.io/release") }
+	gradlePluginPortal()
 }
 
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-quartz")
 	implementation("org.springframework.boot:spring-boot-starter-webflux")
+	//implementation("org.springframework.experimental:spring-native:0.12.0")
 	implementation("org.xerial:sqlite-jdbc:3.40.1.0")
 	implementation("org.hibernate.orm:hibernate-community-dialects")
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
@@ -30,6 +33,7 @@ dependencies {
 	implementation("org.seleniumhq.selenium:selenium-java:4.8.1")
 	implementation("org.seleniumhq.selenium:selenium-chrome-driver:4.8.1")
 	implementation("io.github.bonigarcia:webdrivermanager:5.3.2")
+	implementation("org.apache.httpcomponents.client5:httpclient5:5.2.1")
 	implementation("org.slf4j:slf4j-api:2.0.5")
 	runtimeOnly("ch.qos.logback:logback-classic:1.4.6")
 
