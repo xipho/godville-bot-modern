@@ -4,6 +4,8 @@ import io.github.bonigarcia.wdm.WebDriverManager
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import org.openqa.selenium.WebDriver
+import org.openqa.selenium.chrome.ChromeDriver
+import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.firefox.FirefoxProfile
@@ -65,13 +67,28 @@ class Bot(
             maxPranaExtractPerHour = config.maxPranaExtractionsPerHour
         )
 
-        WebDriverManager.firefoxdriver().setup()
+        driver = prepareFirefoxDriver()
+
+    }
+
+    private fun prepareFirefoxDriver(): WebDriver {
+        WebDriverManager.firefoxdriver().forceDownload().setup()
         val options = FirefoxOptions()
         options.setHeadless(headless)
         options.profile = FirefoxProfile()
 
-        driver = FirefoxDriver(options)
+        val driver = FirefoxDriver(options)
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5))
+        return driver
+    }
+
+    private fun prepareChromeDriver(): WebDriver {
+        WebDriverManager.chromedriver().setup()
+        val options = ChromeOptions()
+        options.setHeadless(headless)
+        val driver = ChromeDriver()
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5))
+        return driver
     }
 
     fun run() {
@@ -161,6 +178,7 @@ class Bot(
                 return
             }
             if (isPranaExtractionPossible) {
+                onBotEvent("Low prana level! Filling up from accumulator")
                 page.extractPrana()
                 val now = LocalDateTime.now()
                 perDayExtractions.add(now)
