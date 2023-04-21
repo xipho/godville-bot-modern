@@ -12,6 +12,7 @@ import org.openqa.selenium.firefox.FirefoxProfile
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.events.BotEventListener
 import ru.xipho.godvillebotmodern.pages.HeroPage
@@ -19,9 +20,7 @@ import ru.xipho.godvillebotmodern.pages.LoginPage
 import ru.xipho.godvillebotmodern.repo.ConfigRepo
 import java.time.Duration
 import java.time.LocalDateTime
-import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.coroutines.EmptyCoroutineContext
 
 @Component
 class Bot(
@@ -67,7 +66,7 @@ class Bot(
             maxPranaExtractPerHour = config.maxPranaExtractionsPerHour
         )
 
-        driver = prepareFirefoxDriver()
+        driver = prepareChromeDriver()
 
     }
 
@@ -260,13 +259,5 @@ class Bot(
         RUNNING,
         SHUTDOWN,
         HALTED
-    }
-
-    object BotScope : CoroutineScope {
-        override val coroutineContext = EmptyCoroutineContext +
-                ForkJoinPool.commonPool().asCoroutineDispatcher() +
-                CoroutineExceptionHandler { context, exception ->
-                    logger.error(context.toString(), exception)
-                } + CoroutineName("Bot")
     }
 }
