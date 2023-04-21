@@ -19,6 +19,7 @@ class CheckHeroState(
     fun doCheck() {
         if (isChecking.tryAcquire(1, TimeUnit.SECONDS)) {
             bot.run()
+            isChecking.release()
         }
     }
 
