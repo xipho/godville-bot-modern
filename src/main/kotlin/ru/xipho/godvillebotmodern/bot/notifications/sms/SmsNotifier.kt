@@ -4,7 +4,6 @@ import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.runInterruptible
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.Bot
 import ru.xipho.godvillebotmodern.bot.async.NotificationScope
@@ -13,27 +12,33 @@ import ru.xipho.godvillebotmodern.bot.events.BotEventListener
 import java.time.LocalDateTime
 
 @Component
-class SmsNotificationListener(
+class SmsNotifier(
     private val bot: Bot
 ): BotEventListener {
 
-    @Value("\${notifier.smsc.login}")
-    private val smscLogin: String = ""
+    companion object {
+        private const val GODVILLE_NOTIFIER_SMSC_LOGIN = "GODVILLE_NOTIFIER_SMSC_LOGIN"
+        private const val GODVILLE_NOTIFIER_SMSC_PASSWORD = "GODVILLE_NOTIFIER_SMSC_PASSWORD"
+        private const val GODVILLE_NOTIFIER_SMSC_PHONE = "GODVILLE_NOTIFIER_SMSC_PHONE"
+        private const val GODVILLE_NOTIFIER_SMSC_PER_HOUR_AMOUNT = "GODVILLE_NOTIFIER_SMSC_PER_HOUR_AMOUNT"
+    }
 
-    @Value("\${notifier.smsc.password}")
-    private val smscPassword: String = ""
+    private val smscLogin: String
+        get() = System.getenv(GODVILLE_NOTIFIER_SMSC_LOGIN) ?: ""
 
-    @Value("\${notifier.smsc.phone}")
-    private val smscPhone: String = ""
+    private val smscPassword: String
+        get() = System.getenv(GODVILLE_NOTIFIER_SMSC_PASSWORD) ?: ""
 
-    @Value("\${notifier.smsc.per.hour.amount}")
-    private val notificationsPerHourAmount: Int = 3
+    private val smscPhone: String
+        get() = System.getenv(GODVILLE_NOTIFIER_SMSC_PHONE) ?: ""
+
+    private val notificationsPerHourAmount: Int
+        get() = System.getenv(GODVILLE_NOTIFIER_SMSC_PER_HOUR_AMOUNT)?.toInt() ?: 3
 
     private lateinit var api: SmscApi
 
     private val triggeredEvents: MutableList<LocalDateTime> = mutableListOf()
-
-    private val logger = LoggerFactory.getLogger(SmsNotificationListener::class.java)
+    private val logger = LoggerFactory.getLogger(SmsNotifier::class.java)
 
     @PostConstruct
     fun init() {
@@ -48,6 +53,7 @@ class SmsNotificationListener(
 
     override suspend fun invoke(event: BotEvent) {
         runInterruptible(NotificationScope.coroutineContext) {
+            logger.trace("Received event $event. Trying to send SMS")
             sendSmsIfAvailable(event)
         }
     }

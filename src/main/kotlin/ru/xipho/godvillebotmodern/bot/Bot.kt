@@ -1,8 +1,8 @@
 package ru.xipho.godvillebotmodern.bot
 
-import io.github.bonigarcia.wdm.WebDriverManager
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.launch
+import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
@@ -10,7 +10,6 @@ import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.firefox.FirefoxProfile
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.events.BotEvent
@@ -24,22 +23,33 @@ import java.util.concurrent.atomic.AtomicReference
 
 @Component
 class Bot(
-    private val configRepo: ConfigRepo,
+    configRepo: ConfigRepo,
 ) {
 
-    @Value("\${godville.browser.headless}")
-    private val headless: Boolean = false
+    private val headless: Boolean
+        get() = System.getenv(GODVILLE_BROWSER_HEADLESS)?.toBoolean() ?: false
 
-    @Value("\${godville.browser.username}")
-    private val username: String = ""
+    private val username: String
+        get() = System.getenv(GODVILLE_BROWSER_USERNAME) ?: ""
 
-    @Value("\${godville.browser.password}")
-    private val password: String = ""
+    private val password: String
+        get() = System.getenv(GODVILLE_BROWSER_PASSWORD) ?: ""
+
+    private val browserName: String
+        get() = System.getenv(GODVILLE_BROWSER_NAME) ?: "chrome"
+
+    private val webDriverPath: String
+        get() = System.getenv(GODVILLE_BROWSER_DRIVER_PATH) ?: ""
 
     companion object {
         private const val domain: String = "https://godville.net"
         private const val domain2: String = "https://godville.net/"
         private const val heroPage: String = "/superhero"
+        private const val GODVILLE_BROWSER_HEADLESS = "GODVILLE_BROWSER_HEADLESS"
+        private const val GODVILLE_BROWSER_USERNAME = "GODVILLE_BROWSER_USERNAME"
+        private const val GODVILLE_BROWSER_PASSWORD = "GODVILLE_BROWSER_PASSWORD"
+        private const val GODVILLE_BROWSER_NAME = "GODVILLE_BROWSER_NAME"
+        private const val GODVILLE_BROWSER_DRIVER_PATH = "GODVILLE_BROWSER_DRIVER_PATH"
         private val logger = LoggerFactory.getLogger(Bot::class.java)
     }
 
@@ -52,7 +62,7 @@ class Bot(
     private var perHourExtractions: MutableList<LocalDateTime> = mutableListOf()
 
     @Volatile
-    private var runState: AtomicReference<RunState> = AtomicReference(RunState.INITIAL)
+    private var runState: AtomicReference<RunState> = AtomicReference(RunState.RUNNING)
 
     init {
         val config = configRepo.findById(1).get()
@@ -66,59 +76,69 @@ class Bot(
             maxPranaExtractPerHour = config.maxPranaExtractionsPerHour
         )
 
-        driver = prepareChromeDriver()
+        driver = when(browserName) {
+            "chrome" -> prepareChromeDriver()
+            "firefox" -> prepareFirefoxDriver()
+            else -> throw IllegalArgumentException("Unsupported browser '$browserName'")
+        }
 
     }
 
     private fun prepareFirefoxDriver(): WebDriver {
-        WebDriverManager.firefoxdriver().forceDownload().setup()
+        System.setProperty("webdriver.gecko.driver", webDriverPath)
         val options = FirefoxOptions()
         options.setHeadless(headless)
         options.profile = FirefoxProfile()
-
         val driver = FirefoxDriver(options)
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5))
         return driver
     }
 
     private fun prepareChromeDriver(): WebDriver {
-        WebDriverManager.chromedriver().setup()
+        System.setProperty("webdriver.chrome.driver", webDriverPath)
         val options = ChromeOptions()
-        options.setHeadless(headless)
-        val driver = ChromeDriver()
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5))
+        options.addArguments("--window-size=1280,720")
+        options.addArguments("enable-automation")
+        options.addArguments("--no-sandbox")
+        options.addArguments("--disable-dev-shm-usage")
+        options.addArguments("--disable-browser-side-navigation")
+        options.addArguments("--disable-gpu")
+        options.addArguments("--disable-extensions")
+        options.addArguments("--dns-prefetch-disable")
+        options.addArguments("--disable-gpu")
+        options.addArguments("--ignore-ssl-errors")
+        options.addArguments("--log-level=3")
+        options.addArguments("enable-features=NetworkServiceInProcess")
+        options.addArguments("disable-features=NetworkService")
+        options.setPageLoadStrategy(PageLoadStrategy.NORMAL)
+        if (headless) {
+            options.addArguments("--headless=new")
+        }
+        val driver = ChromeDriver(options)
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(120))
         return driver
     }
 
     fun run() {
-        when (runState.get()) {
-            RunState.INITIAL -> runInitialCycle()
-            RunState.ON_LOGIN_PAGE -> runOnLoginPageCycle()
-            RunState.RUNNING -> runMainCycle()
-            RunState.SHUTDOWN -> runGracefulShutdownCycle()
-            RunState.HALTED -> logger.warn("Bot halted after shutdown. Waiting app exit")
-            null -> logger.error("Failed to get bot state. Will try on next turn")
+        if (runState.get() != RunState.RUNNING) {
+            logger.warn("RunState is not RUNNING. Exiting")
+            return
+        }
+
+        logger.trace("Checking hero state...")
+
+        if (!driver.currentUrl.endsWith(heroPage)) {
+            if (!isOnLoginPage) {
+                driver.navigate().to(domain)
+            }
+            runOnLoginPageCycle()
+        } else {
+            runMainCycle()
         }
     }
 
-    private fun runInitialCycle() {
-        logger.info("Starting up...")
-        if (driver.currentUrl.endsWith(heroPage)) {
-            logger.warn("It's very strange to be here!")
-            return
-        }
-        driver.navigate().to(domain)
-        val isOnLoginPage =
-            driver.currentUrl == domain || driver.currentUrl == domain2 || driver.currentUrl.endsWith("/login")
-        if (isOnLoginPage) {
-            runState.set(RunState.ON_LOGIN_PAGE)
-            runOnLoginPageCycle()
-        } else {
-            logger.error(
-                """Failed to got to login page. Expected to be on $domain but current page is ${driver.currentUrl}"""
-            )
-        }
-    }
+    private val isOnLoginPage: Boolean
+        get() = driver.currentUrl == domain || driver.currentUrl == domain2 || driver.currentUrl.endsWith("/login")
 
     private fun runOnLoginPageCycle() {
         val page = LoginPage(driver)
@@ -132,8 +152,6 @@ class Bot(
 
     private fun runMainCycle() {
         if (!driver.currentUrl.endsWith(heroPage)) {
-            logger.error("We are not on hero page! Resetting state!")
-            runState.set(RunState.INITIAL)
             return
         }
 
@@ -222,7 +240,6 @@ class Bot(
     private fun runGracefulShutdownCycle() {
         logger.info("Shutting down")
         driver.quit()
-        runState.set(RunState.HALTED)
     }
 
     fun subscribeToBotEvent(listener: BotEventListener) {
@@ -250,14 +267,11 @@ class Bot(
     @PreDestroy
     fun tearDown() {
         runState.set(RunState.SHUTDOWN)
-        run()
+        runGracefulShutdownCycle()
     }
 
     enum class RunState {
-        INITIAL,
-        ON_LOGIN_PAGE,
         RUNNING,
         SHUTDOWN,
-        HALTED
     }
 }
