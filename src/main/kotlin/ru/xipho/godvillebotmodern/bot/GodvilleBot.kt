@@ -22,7 +22,7 @@ import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicReference
 
 @Component
-class Bot(
+class GodvilleBot(
     configRepo: ConfigRepo,
 ) {
 
@@ -50,7 +50,7 @@ class Bot(
         private const val GODVILLE_BROWSER_PASSWORD = "GODVILLE_BROWSER_PASSWORD"
         private const val GODVILLE_BROWSER_NAME = "GODVILLE_BROWSER_NAME"
         private const val GODVILLE_BROWSER_DRIVER_PATH = "GODVILLE_BROWSER_DRIVER_PATH"
-        private val logger = LoggerFactory.getLogger(Bot::class.java)
+        private val logger = LoggerFactory.getLogger(GodvilleBot::class.java)
     }
 
     private val botEventListeners: MutableList<BotEventListener> = mutableListOf()

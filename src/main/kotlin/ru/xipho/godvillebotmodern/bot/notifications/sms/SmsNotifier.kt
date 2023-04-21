@@ -4,16 +4,15 @@ import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.runInterruptible
 import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
-import ru.xipho.godvillebotmodern.bot.Bot
+import ru.xipho.godvillebotmodern.bot.GodvilleBot
 import ru.xipho.godvillebotmodern.bot.async.NotificationScope
 import ru.xipho.godvillebotmodern.bot.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.events.BotEventListener
 import java.time.LocalDateTime
 
-@Component
+//@Component
 class SmsNotifier(
-    private val bot: Bot
+    private val bot: GodvilleBot
 ): BotEventListener {
 
     companion object {
