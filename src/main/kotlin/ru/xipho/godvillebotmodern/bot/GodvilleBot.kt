@@ -179,10 +179,10 @@ class GodvilleBot(
         val petOk = page.isPetOk()
         if (!petOk) {
             val money = page.getMoney()
-            onBotEvent("WARNING! The pet is down and needs to heal!")
+            onBotEvent("\uD83D\uDE31 БЕДА!!! Питомца контузило!!!")
             val neededMoney = page.getNeededForPetRessurrectMoney()
             if (money >= neededMoney) {
-                onBotEvent("You have enough money to heal pet now!")
+                onBotEvent("\uD83E\uDD11 Есть бабло на починку питомца! Действуй!")
             }
         }
     }
@@ -195,7 +195,7 @@ class GodvilleBot(
                 return
             }
             if (isPranaExtractionPossible) {
-                onBotEvent("Low prana level! Filling up from accumulator")
+                onBotEvent("\uD83D\uDE4F Маловато праны, распаковываем из аккумулятора!")
                 page.extractPrana()
                 val now = LocalDateTime.now()
                 perDayExtractions.add(now)
@@ -207,7 +207,7 @@ class GodvilleBot(
     private fun isPranaAccumulatorEmpty(page: HeroPage): Boolean {
         val pranaInAccum = page.getAccum()
         return if (pranaInAccum <= 0) {
-            onBotEvent("No prana in accumulator left! Please refill")
+            onBotEvent("\uD83E\uDEAB В аккумуляторе закончилась прана! Пополни запасы как можно скорее!")
             logger.warn("No prana in accumulator left!")
             true
         } else {

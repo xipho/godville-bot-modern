@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.GodvilleBot
 import ru.xipho.godvillebotmodern.bot.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.events.BotEventListener
+import ru.xipho.godvillebotmodern.bot.misc.SimpleRateLimiter
 
 @Component
 class TelegramNotifier(
@@ -32,6 +33,8 @@ class TelegramNotifier(
 
     private val logger = LoggerFactory.getLogger(TelegramNotifier::class.java)
 
+    private val limiter = SimpleRateLimiter(5)
+
     @PostConstruct
     fun init() {
         godvilleBot.subscribeToBotEvent(this)
@@ -44,7 +47,9 @@ class TelegramNotifier(
 
     override suspend fun invoke(event: BotEvent) {
         logger.trace("Received event $event")
-        val request = SendMessage(chatId, event.message)
-        bot.execute(request)
+        limiter.doRateLimited {
+            val request = SendMessage(chatId, event.message)
+            bot.execute(request)
+        }
     }
 }
