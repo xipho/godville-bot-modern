@@ -22,8 +22,6 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-quartz")
 	//implementation("org.springframework.experimental:spring-native:0.12.0")
-	implementation("org.xerial:sqlite-jdbc:3.40.1.0")
-	implementation("org.hibernate.orm:hibernate-community-dialects")
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
