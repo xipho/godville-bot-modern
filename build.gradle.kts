@@ -20,9 +20,7 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-quartz")
-	implementation("org.springframework.boot:spring-boot-starter-webflux")
 	//implementation("org.springframework.experimental:spring-native:0.12.0")
 	implementation("org.xerial:sqlite-jdbc:3.40.1.0")
 	implementation("org.hibernate.orm:hibernate-community-dialects")

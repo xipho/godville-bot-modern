@@ -149,9 +149,13 @@ class GodvilleBot(
     }
 
     private fun handleHealthConditions(page: HeroPage) {
+        if (!botSettingsManager.settings.checkHealth) {
+            logger.warn("Health check is disabled")
+            return
+        }
         val healthInPercents = page.getHealthPercent()
 
-        if (healthInPercents < 30) {
+        if (healthInPercents < botSettingsManager.settings.healthLowPercentWarningThreshold) {
             if (page.getCurrentPrana() > 25) {
                 logger.debug("Healing our hero")
                 page.makeGood()
@@ -162,6 +166,10 @@ class GodvilleBot(
     }
 
     private fun handlePetCondition(page: HeroPage) {
+        if (!botSettingsManager.settings.checkPet) {
+            logger.warn("Pet check is disabled")
+            return
+        }
         val petOk = page.isPetOk()
         if (!petOk) {
             val money = page.getMoney()
@@ -193,7 +201,10 @@ class GodvilleBot(
     private fun isPranaAccumulatorEmpty(page: HeroPage): Boolean {
         val pranaInAccum = page.getAccum()
         return if (pranaInAccum <= 0) {
-            onBotEvent("\uD83E\uDEAB В аккумуляторе закончилась прана! Пополни запасы как можно скорее!")
+            onBotEvent(
+                "\uD83E\uDEAB В аккумуляторе закончилась прана! Пополни запасы как можно скорее!",
+                true
+            )
             logger.warn("No prana in accumulator left!")
             true
         } else {

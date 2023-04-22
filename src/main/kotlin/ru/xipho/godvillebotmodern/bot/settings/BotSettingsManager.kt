@@ -94,6 +94,8 @@ class BotSettingsManager {
         )
     }
 
+    fun viewSettings(): String = gson.toJson(botSettings)
+
     private fun updateSettings(newSettings: BotSettings) {
         botSettings = newSettings
         val settingsPath = Paths.get(settingsLocation)

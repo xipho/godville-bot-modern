@@ -5,11 +5,13 @@ import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.SendMessage
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.GodvilleBot
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
+import ru.xipho.godvillebotmodern.bot.async.NotificationScope
 import ru.xipho.godvillebotmodern.bot.misc.SimpleRateLimiter
 
 @Component
@@ -43,8 +45,10 @@ class TelegramNotifier(
         val limiter = selectLimiter(event)
 
         limiter.doRateLimited {
-            val request = SendMessage(chatId, message).parseMode(ParseMode.MarkdownV2)
-            bot.execute(request)
+            NotificationScope.launch {
+                val request = SendMessage(chatId, message).parseMode(ParseMode.MarkdownV2)
+                bot.execute(request)
+            }
         }
     }
 
