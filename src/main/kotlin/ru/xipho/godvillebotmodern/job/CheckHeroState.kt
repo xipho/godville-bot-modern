@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableScheduling
 import ru.xipho.godvillebotmodern.bot.GodvilleBot
+import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 
 @Configuration
 @EnableScheduling
@@ -19,9 +20,15 @@ class CheckHeroStateConfig {
     }
 
     @Bean
-    fun trigger(jobDetail: JobDetail): Trigger {
+    fun trigger(
+        jobDetail: JobDetail,
+        configManager: BotSettingsManager
+    ): Trigger {
 
-        val scheduler = SimpleScheduleBuilder.simpleSchedule().withIntervalInSeconds(30).repeatForever()
+        val scheduler = SimpleScheduleBuilder
+            .simpleSchedule()
+            .withIntervalInSeconds(configManager.settings.checkPeriodSeconds)
+            .repeatForever()
 
         return TriggerBuilder.newTrigger()
             .forJob(jobDetail)

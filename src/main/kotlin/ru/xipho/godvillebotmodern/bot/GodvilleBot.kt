@@ -11,19 +11,19 @@ import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.firefox.FirefoxProfile
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
+import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
 import ru.xipho.godvillebotmodern.bot.async.BotScope
-import ru.xipho.godvillebotmodern.bot.events.BotEvent
-import ru.xipho.godvillebotmodern.bot.events.BotEventListener
+import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 import ru.xipho.godvillebotmodern.pages.HeroPage
 import ru.xipho.godvillebotmodern.pages.LoginPage
-import ru.xipho.godvillebotmodern.repo.ConfigRepo
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.concurrent.atomic.AtomicReference
 
 @Component
 class GodvilleBot(
-    configRepo: ConfigRepo,
+    private val botSettingsManager: BotSettingsManager
 ) {
 
     private val headless: Boolean
@@ -54,8 +54,6 @@ class GodvilleBot(
     }
 
     private val botEventListeners: MutableList<BotEventListener> = mutableListOf()
-
-    private val botSettings: BotSettings
     private val driver: WebDriver
 
     private var perDayExtractions: MutableList<LocalDateTime> = mutableListOf()
@@ -65,23 +63,11 @@ class GodvilleBot(
     private var runState: AtomicReference<RunState> = AtomicReference(RunState.RUNNING)
 
     init {
-        val config = configRepo.findById(1).get()
-        botSettings = BotSettings(
-            headless = headless,
-            checkPeriod = config.checkPeriodSeconds,
-            checkHealth = config.checkHealth,
-            checkPet = config.checkPet,
-            allowPranaExtract = config.allowPranaExtract,
-            maxPranaExtractPerDay = config.maxPranaExtractionsPerDay,
-            maxPranaExtractPerHour = config.maxPranaExtractionsPerHour
-        )
-
         driver = when(browserName) {
             "chrome" -> prepareChromeDriver()
             "firefox" -> prepareFirefoxDriver()
             else -> throw IllegalArgumentException("Unsupported browser '$browserName'")
         }
-
     }
 
     private fun prepareFirefoxDriver(): WebDriver {
@@ -217,9 +203,13 @@ class GodvilleBot(
 
     private val isPranaExtractionPossible: Boolean
         get() {
+            if (!botSettingsManager.settings.allowPranaExtract) {
+                onBotEvent("\uD83D\uDE45\u200D♂️ Распаковка праны отключена. Поменяй настройки, если необходимо")
+                logger.warn("Prana extraction disabled")
+            }
             val currentTime = LocalDateTime.now()
-            val maxPerDay = botSettings.maxPranaExtractPerDay
-            val maxPerHour = botSettings.maxPranaExtractPerHour
+            val maxPerDay = botSettingsManager.settings.maxPranaExtractionsPerDay
+            val maxPerHour = botSettingsManager.settings.maxPranaExtractionsPerHour
 
             perDayExtractions.removeIf { it.isBefore(currentTime.minusDays(1)) }
             perHourExtractions.removeIf { it.isBefore(currentTime.minusHours(1)) }
@@ -230,6 +220,10 @@ class GodvilleBot(
             return if (perDayExtractionAvailable && perHourExtractionAvailable) {
                 true
             } else {
+                onBotEvent("""\uD83D\uDE10 Не получилось распаковать прану - достигнут один из лимитов: 
+                    | Лимит в день: ${!perDayExtractionAvailable}
+                    | Лимит в час: ${!perHourExtractionAvailable}
+                """.trimMargin(), true)
                 logger.warn("Extraction denied due to limits.")
                 logger.warn("Per day extraction limit reached: ${!perDayExtractionAvailable}")
                 logger.warn("Per hour extraction limit reached: ${!perHourExtractionAvailable}")
@@ -255,8 +249,11 @@ class GodvilleBot(
         logger.info("Bot event listener unsubscribed: ${listener.javaClass}")
     }
 
-    private fun onBotEvent(message: String) {
-        val event = BotEvent(message)
+    private fun onBotEvent(
+        message: String,
+        urgent: Boolean = false
+    ) {
+        val event = BotEvent(message, urgent)
         BotScope.launch {
             botEventListeners.forEach {
                 launch { it.invoke(event) }
