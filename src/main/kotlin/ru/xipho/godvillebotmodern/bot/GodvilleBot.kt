@@ -142,13 +142,17 @@ class GodvilleBot(
             return
         }
 
-        val page = HeroPage(driver)
+        try {
+            val page = HeroPage(driver)
 
-        handlePranaLevel(page)
-        handlePetCondition(page)
-        handlePossibleHeroDeath(page)
-        handleHealthConditions(page)
-        handlePranaFromInventory(page)
+            handlePranaLevel(page)
+            handlePetCondition(page)
+            handlePossibleHeroDeath(page)
+            handleHealthConditions(page)
+            handlePranaFromInventory(page)
+        } catch (ex: Exception) {
+            logger.error("Error occurred while working with page!", ex)
+        }
     }
 
     private fun handlePossibleHeroDeath(page: HeroPage) {
