@@ -1,8 +1,6 @@
 package ru.xipho.godvillebotmodern.bot.telegram
 
 import com.pengrad.telegrambot.TelegramBot
-import com.pengrad.telegrambot.model.request.ParseMode
-import com.pengrad.telegrambot.request.SendMessage
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.launch
@@ -46,8 +44,8 @@ class TelegramNotifier(
 
         limiter.doRateLimited {
             NotificationScope.launch {
-                val request = SendMessage(chatId, message).parseMode(ParseMode.MarkdownV2)
-                bot.execute(request)
+                logger.trace("Sending message $message")
+                bot.sendMessage(chatId, message)
             }
         }
     }

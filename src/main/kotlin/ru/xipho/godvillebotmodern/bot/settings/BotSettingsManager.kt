@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 
@@ -24,19 +25,27 @@ class BotSettingsManager {
     init {
         val settingsPath = Paths.get(settingsLocation)
         if (Files.exists(settingsPath)) {
-            logger.info("Bot settings file found at $settingsLocation. Trying to load")
-            Files.newBufferedReader(settingsPath).use {
-                botSettings = gson.fromJson(it, BotSettings::class.java)
-            }
-            logger.info("Bot settings loaded.")
+            readExistingSettings(settingsPath)
         } else {
-            logger.info("No bot settings file found at $settingsLocation. Creating default one")
-            botSettings = BotSettings()
-            Files.newBufferedWriter(settingsPath, StandardOpenOption.CREATE).use {
-                gson.toJson(botSettings, it)
-            }
-            logger.info("Default settings file created at $settingsLocation")
+            createDefaultSettings(settingsPath)
         }
+    }
+
+    private fun readExistingSettings(settingsPath: Path?) {
+        logger.info("Bot settings file found at $settingsLocation. Trying to load")
+        Files.newBufferedReader(settingsPath).use {
+            botSettings = gson.fromJson(it, BotSettings::class.java)
+        }
+        logger.info("Bot settings loaded.")
+    }
+
+    private fun createDefaultSettings(settingsPath: Path?) {
+        logger.info("No bot settings file found at $settingsLocation. Creating default one")
+        botSettings = BotSettings()
+        Files.newBufferedWriter(settingsPath, StandardOpenOption.CREATE).use {
+            gson.toJson(botSettings, it)
+        }
+        logger.info("Default settings file created at $settingsLocation")
     }
 
     fun updateCheckHealth(newValue: String) {

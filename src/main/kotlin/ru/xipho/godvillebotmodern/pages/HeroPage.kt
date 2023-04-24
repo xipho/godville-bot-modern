@@ -32,6 +32,7 @@ class HeroPage(
     private val badLink: WebElement
         get() = driver.findElement(By.cssSelector("a[class*='pun']"))
 
+    @Suppress("unused")
     private val miracleLink: WebElement
         get() = driver.findElement(By.cssSelector("a[class*='mir']"))
 
@@ -98,7 +99,7 @@ class HeroPage(
         resurrectLink.click()
         true
     } catch (e: Exception) {
-        logger.error("Failed to make good!", e)
+        logger.error("Failed to resurrect!", e)
         false
     }
 
@@ -120,6 +121,7 @@ class HeroPage(
         false
     }
 
+    @Suppress("unused")
     fun makeBad(): Boolean = try {
         badLink.click()
         true
@@ -141,16 +143,6 @@ class HeroPage(
     }
 
     fun isPetOk(): Boolean = !petElement.text.contains("❌")
-
-    fun checkAndUserPranaFromInventory() {
-        try {
-            val elements =
-
-                Thread.sleep(500)
-        } catch (e: NoSuchElementException) {
-            // Nothing to do here
-        }
-    }
 
     private val pranaItemsInInventory: MutableList<WebElement>
         get() = driver.findElements(By.cssSelector("a[title^='Этот предмет добавляет в полоску прану']"))

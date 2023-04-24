@@ -1,10 +1,12 @@
 package ru.xipho.godvillebotmodern.job
 
+import kotlinx.coroutines.runBlocking
 import org.quartz.*
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableScheduling
 import ru.xipho.godvillebotmodern.bot.GodvilleBot
+import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 
 @Configuration
@@ -42,7 +44,7 @@ open class CheckHeroStateConfig {
 class CheckHeroState(
     private val bot: GodvilleBot
 ): Job {
-    override fun execute(context: JobExecutionContext?) {
+    override fun execute(context: JobExecutionContext?) = runBlocking(BotScope.coroutineContext) {
         bot.run()
     }
 }

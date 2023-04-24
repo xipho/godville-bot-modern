@@ -3,9 +3,7 @@ package ru.xipho.godvillebotmodern.bot.telegram
 import com.pengrad.telegrambot.TelegramBot
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.GetUpdates
-import com.pengrad.telegrambot.request.SendMessage
 import com.pengrad.telegrambot.response.GetUpdatesResponse
-import com.pengrad.telegrambot.response.SendResponse
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Job
@@ -67,13 +65,13 @@ class TelegramGodvilleBotConfigurator(
             "/start" -> logger.debug("Bot start command received")
             "/viewconf" -> {
                 val config = botSettingsManager.viewSettings()
-                bot.sendMessage("""Текущий конфиг: 
+                bot.sendMessage(chatId, """Текущий конфиг: 
                     |```$config```
-                """.trimMargin())
+                """.trimMargin(), ParseMode.MarkdownV2)
             }
             else -> {
                 logger.warn("Unsupported command $cmd")
-                bot.sendMessage("❌ Передана неизвестная команда $cmd")
+                bot.sendMessage(chatId, "❌ Передана неизвестная команда $cmd")
             }
         }
     }
@@ -92,12 +90,12 @@ class TelegramGodvilleBotConfigurator(
             "maxPranaExtractionsPerHour" -> botSettingsManager.updateMaxPranaExtractionsPerHour(configValue)
             else -> {
                 logger.warn("Unknown config $configName")
-                bot.sendMessage("❌ Передан неизвестный конфиг $configName")
+                bot.sendMessage(chatId, "❌ Передан неизвестный конфиг $configName")
                 return
             }
         }
 
-        bot.sendMessage("✅ Конфиг '$configName' обновлён. Новое значение: $configValue")
+        bot.sendMessage(chatId, "✅ Конфиг '$configName' обновлён. Новое значение: $configValue")
     }
 
     @PreDestroy
@@ -106,10 +104,5 @@ class TelegramGodvilleBotConfigurator(
         runBlocking {
             job.join()
         }
-    }
-
-    private fun TelegramBot.sendMessage(message: String): SendResponse? {
-        val request = SendMessage(chatId, message).parseMode(ParseMode.MarkdownV2)
-        return this.execute(request)
     }
 }

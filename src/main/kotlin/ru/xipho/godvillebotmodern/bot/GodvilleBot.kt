@@ -1,6 +1,7 @@
 package ru.xipho.godvillebotmodern.bot
 
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.WebDriver
@@ -63,7 +64,7 @@ class GodvilleBot(
     private var runState: AtomicReference<RunState> = AtomicReference(RunState.RUNNING)
 
     init {
-        driver = when(browserName) {
+        driver = when (browserName) {
             "chrome" -> prepareChromeDriver()
             "firefox" -> prepareFirefoxDriver()
             else -> throw IllegalArgumentException("Unsupported browser '$browserName'")
@@ -76,7 +77,7 @@ class GodvilleBot(
         options.setHeadless(headless)
         options.profile = FirefoxProfile()
         val driver = FirefoxDriver(options)
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5))
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(120))
         return driver
     }
 
@@ -105,7 +106,7 @@ class GodvilleBot(
         return driver
     }
 
-    fun run() {
+    suspend fun run() {
         if (runState.get() != RunState.RUNNING) {
             logger.warn("RunState is not RUNNING. Exiting")
             return
@@ -136,7 +137,7 @@ class GodvilleBot(
         runState.set(RunState.RUNNING)
     }
 
-    private fun runMainCycle() {
+    private suspend fun runMainCycle() {
         if (!driver.currentUrl.endsWith(heroPage)) {
             return
         }
@@ -145,7 +146,29 @@ class GodvilleBot(
 
         handlePranaLevel(page)
         handlePetCondition(page)
+        handlePossibleHeroDeath(page)
         handleHealthConditions(page)
+        handlePranaFromInventory(page)
+    }
+
+    private fun handlePossibleHeroDeath(page: HeroPage) {
+        if (page.getHealth() == 0) {
+            onBotEvent("\uD83D\uDE35 Герой всё. Пытаемся воскресить!", urgent = true)
+            if (!page.resurrect()) {
+                onBotEvent("❗️ Воскресить героя не удалось! Требуется вмешательство!", urgent = true)
+            }
+        }
+    }
+
+    private suspend fun handlePranaFromInventory(page: HeroPage) {
+        logger.trace("Checking if hero have prana in his inventory")
+        while (page.havePranaInInventory) {
+            if (page.getCurrentPrana() < 75) {
+                logger.trace("Hero have prana in inventory. Unpacking")
+                page.useFirstPranaFromInventory()
+            }
+            delay(500)
+        }
     }
 
     private fun handleHealthConditions(page: HeroPage) {
@@ -231,10 +254,12 @@ class GodvilleBot(
             return if (perDayExtractionAvailable && perHourExtractionAvailable) {
                 true
             } else {
-                onBotEvent("""\uD83D\uDE10 Не получилось распаковать прану - достигнут один из лимитов: 
+                onBotEvent(
+                    """\uD83D\uDE10 Не получилось распаковать прану - достигнут один из лимитов: 
                     | Лимит в день: ${!perDayExtractionAvailable}
                     | Лимит в час: ${!perHourExtractionAvailable}
-                """.trimMargin(), true)
+                """.trimMargin(), true
+                )
                 logger.warn("Extraction denied due to limits.")
                 logger.warn("Per day extraction limit reached: ${!perDayExtractionAvailable}")
                 logger.warn("Per hour extraction limit reached: ${!perHourExtractionAvailable}")
