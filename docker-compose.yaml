@@ -1,0 +1,16 @@
+version: "3.5"
+
+services:
+  godville-bot:
+    container_name: godville-bot
+    image: xipho/gamehacklab:godville-bot-debian-latest
+    environment:
+      - GODVILLE_BOT_LOG_LEVEL=TRACE
+      - GODVILLE_BOT_SETTINGS_PATH=/app/godville_bot_settings.json
+      - GODVILLE_BROWSER_DRIVER_PATH=/app/drivers/chromedriver_112
+      - GODVILLE_BROWSER_NAME=chrome
+      - GODVILLE_BROWSER_USERNAME=<place here your Godville.net username>
+      - GODVILLE_BROWSER_PASSWORD=<place here your Godville.net password>
+      - GODVILLE_TELEGRAM_NOTIFIER_CHAT_ID=<place here your telegram id>
+      - GODVILLE_TELEGRAM_NOTIFIER_TOKEN=<place here your telegram bot token>
+      - GODVILLE_BROWSER_HEADLESS=true

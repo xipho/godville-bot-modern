@@ -62,13 +62,13 @@ class HeroPage(
 
     fun getHealth(): Int {
         val health = healthElement.text.split(" / ")[0]
-        logger.trace("Hero's healths: $health")
+        logger.trace("Hero's health: $health")
         return health.toInt()
     }
 
     fun getHealthPercent(): Int {
         val health = healthBarElement.getAttribute("title").replace(healthBarPercentRegex, "$1")
-        logger.trace("Hero's health in percents is: $health")
+        logger.trace("Hero's health: $health%")
         return health.toInt()
     }
 

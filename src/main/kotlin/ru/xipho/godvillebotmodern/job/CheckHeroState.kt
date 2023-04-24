@@ -9,10 +9,10 @@ import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 
 @Configuration
 @EnableScheduling
-class CheckHeroStateConfig {
+open class CheckHeroStateConfig {
 
     @Bean
-    fun jobDetail(): JobDetail {
+    open fun jobDetail(): JobDetail {
         return JobBuilder.newJob(CheckHeroState::class.java)
             .withIdentity("checkHeroState")
             .storeDurably()
@@ -20,7 +20,7 @@ class CheckHeroStateConfig {
     }
 
     @Bean
-    fun trigger(
+    open fun trigger(
         jobDetail: JobDetail,
         configManager: BotSettingsManager
     ): Trigger {
