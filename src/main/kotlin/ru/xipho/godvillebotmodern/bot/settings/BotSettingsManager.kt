@@ -1,6 +1,6 @@
 package ru.xipho.godvillebotmodern.bot.settings
 
-import com.google.gson.GsonBuilder
+import com.google.gson.Gson
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Files
@@ -9,11 +9,12 @@ import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 
 @Component
-class BotSettingsManager {
+class BotSettingsManager(
+    private val gson: Gson
+) {
 
     private val logger = LoggerFactory.getLogger(BotSettingsManager::class.java)
 
-    private val gson = GsonBuilder().setPrettyPrinting().create()
     private lateinit var botSettings: BotSettings
     private val settingsLocation: String
         get() = System.getenv("GODVILLE_BOT_SETTINGS_PATH") ?: ""

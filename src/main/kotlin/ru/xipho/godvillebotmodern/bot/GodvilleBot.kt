@@ -229,7 +229,7 @@ class GodvilleBot(
         val pranaInAccum = page.getAccum()
         return if (pranaInAccum <= 0) {
             onBotEvent(
-                "\uD83E\uDEAB В аккумуляторе закончилась прана! Пополни запасы как можно скорее!",
+                "\uD83D\uDED1 В аккумуляторе закончилась прана! Пополни запасы как можно скорее!",
                 true
             )
             logger.warn("No prana in accumulator left!")
@@ -242,7 +242,7 @@ class GodvilleBot(
     private val isPranaExtractionPossible: Boolean
         get() {
             if (!botSettingsManager.settings.allowPranaExtract) {
-                onBotEvent("\uD83D\uDE45\u200D♂️ Распаковка праны отключена. Поменяй настройки, если необходимо")
+                onBotEvent("⛔️ Распаковка праны отключена. Поменяй настройки, если необходимо")
                 logger.warn("Prana extraction disabled")
             }
             val currentTime = LocalDateTime.now()
@@ -259,7 +259,7 @@ class GodvilleBot(
                 true
             } else {
                 onBotEvent(
-                    """\uD83D\uDE10 Не получилось распаковать прану - достигнут один из лимитов: 
+                    """🙅‍♂️ Не получилось распаковать прану - достигнут один из лимитов: 
                     | Лимит в день: ${!perDayExtractionAvailable}
                     | Лимит в час: ${!perHourExtractionAvailable}
                 """.trimMargin(), true

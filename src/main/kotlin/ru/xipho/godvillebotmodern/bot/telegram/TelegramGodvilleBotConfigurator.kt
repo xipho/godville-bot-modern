@@ -63,9 +63,9 @@ class TelegramGodvilleBotConfigurator(
         when (val cmd = fullCommand[0]) {
             "/config" -> processConfigCommand(fullCommand[1] to fullCommand[2])
             "/start" -> logger.debug("Bot start command received")
-            "/viewconf" -> {
+            "/view-conf" -> {
                 val config = botSettingsManager.viewSettings()
-                bot.sendMessage(chatId, """Текущий конфиг: 
+                bot.sendMessage(chatId, """[GodvilleBot] Текущий конфиг: 
                     |```$config```
                 """.trimMargin(), ParseMode.MarkdownV2)
             }
@@ -77,8 +77,7 @@ class TelegramGodvilleBotConfigurator(
     }
 
     private fun processConfigCommand(command: Pair<String, String>) {
-        val configName = command.first
-        val configValue = command.second
+        val (configName, configValue) = command
 
         when(configName) {
             "checkPet" -> botSettingsManager.updateCheckPet(configValue)

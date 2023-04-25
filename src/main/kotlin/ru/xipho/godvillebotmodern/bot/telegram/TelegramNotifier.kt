@@ -20,8 +20,8 @@ class TelegramNotifier(
 ): BotEventListener {
 
     private val logger = LoggerFactory.getLogger(TelegramNotifier::class.java)
-    private val usualLimiter = SimpleRateLimiter(5, 3)
-    private val urgentLimiter = SimpleRateLimiter(10, 5)
+    private val usualLimiter = SimpleRateLimiter(4, 2)
+    private val urgentLimiter = SimpleRateLimiter(7, 2)
 
     companion object {
         private const val notifierPrefix = "[GodvilleBot]:"
