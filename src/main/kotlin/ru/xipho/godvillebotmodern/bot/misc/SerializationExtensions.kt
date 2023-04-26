@@ -11,15 +11,6 @@ import org.springframework.context.annotation.Configuration
 @Target(AnnotationTarget.FIELD)
 annotation class GsonExcludeField
 
-object AnnotatedWithExcludeFieldExclusionStrategy: ExclusionStrategy {
-
-    override fun shouldSkipField(f: FieldAttributes): Boolean {
-        return f.getAnnotation(GsonExcludeField::class.java) != null
-    }
-
-    override fun shouldSkipClass(clazz: Class<*>?): Boolean = false
-}
-
 @Configuration
 open class SerializationConfig {
 
@@ -28,4 +19,13 @@ open class SerializationConfig {
         .setPrettyPrinting()
         .addSerializationExclusionStrategy(AnnotatedWithExcludeFieldExclusionStrategy)
         .create()
+}
+
+
+object AnnotatedWithExcludeFieldExclusionStrategy: ExclusionStrategy {
+
+    override fun shouldSkipField(f: FieldAttributes): Boolean {
+        return f.getAnnotation(GsonExcludeField::class.java) != null
+    }
+    override fun shouldSkipClass(clazz: Class<*>?): Boolean = false
 }

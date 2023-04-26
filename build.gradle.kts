@@ -30,6 +30,7 @@ dependencies {
 	implementation("com.squareup.okhttp3:okhttp:4.9.3")
 	implementation("org.slf4j:slf4j-api:2.0.5")
 	implementation("com.github.pengrad:java-telegram-bot-api:6.5.0")
+	implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
 	runtimeOnly("ch.qos.logback:logback-classic:1.4.6")
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
