@@ -1,4 +1,4 @@
-package ru.xipho.godvillebotmodern.bot
+package ru.xipho.godvillebotmodern.bot.api
 
 import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.WebDriver
@@ -7,6 +7,7 @@ import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.firefox.FirefoxDriver
 import org.openqa.selenium.firefox.FirefoxOptions
 import org.openqa.selenium.firefox.FirefoxProfile
+import ru.xipho.godvillebotmodern.bot.settings.GlobalConfigProvider
 import java.time.Duration
 
 object WebDriverProvider {

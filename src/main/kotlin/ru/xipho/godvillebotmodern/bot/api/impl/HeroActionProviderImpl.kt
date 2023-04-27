@@ -1,9 +1,9 @@
 package ru.xipho.godvillebotmodern.bot.api.impl
 
 import org.openqa.selenium.WebDriver
-import ru.xipho.godvillebotmodern.bot.GlobalConfigProvider
-import ru.xipho.godvillebotmodern.bot.WebDriverProvider
 import ru.xipho.godvillebotmodern.bot.api.HeroActionProvider
+import ru.xipho.godvillebotmodern.bot.api.WebDriverProvider
+import ru.xipho.godvillebotmodern.bot.settings.GlobalConfigProvider
 import ru.xipho.godvillebotmodern.pages.HeroPage
 import ru.xipho.godvillebotmodern.pages.LoginPage
 

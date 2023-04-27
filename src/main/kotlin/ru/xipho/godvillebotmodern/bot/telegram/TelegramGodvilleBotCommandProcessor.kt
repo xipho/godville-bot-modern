@@ -7,7 +7,7 @@ import kotlinx.coroutines.runBlocking
 import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 
-class TelegramGodvilleBotConfigurator(
+class TelegramGodvilleBotCommandProcessor(
     private val telegramWrapper: TelegramWrapper,
     private val botSettingsManager: BotSettingsManager
 ): AutoCloseable {
@@ -39,7 +39,9 @@ class TelegramGodvilleBotConfigurator(
             "/view-conf" -> {
                 val config = botSettingsManager.viewSettings()
                 telegramWrapper.sendMessage("""[GodvilleBot] Текущий конфиг: 
-                    |```$config```
+                    |```
+                    |$config
+                    |```
                 """.trimMargin(), true)
             }
             else -> {
@@ -52,19 +54,14 @@ class TelegramGodvilleBotConfigurator(
     private fun processConfigCommand(command: Pair<String, String>) {
         val (configName, configValue) = command
 
-        when(configName) {
-            "checkPet" -> botSettingsManager.updateCheckPet(configValue)
-            "checkHealth" -> botSettingsManager.updateCheckHealth(configValue)
-            "healthLowWarningThreshold" -> botSettingsManager.updateHealthLowWarningThreshold(configValue)
-            "healthLowPercentWarningThreshold" -> botSettingsManager.updateHealthLowPercentWarningThreshold(configValue)
-            "allowPranaExtract" -> botSettingsManager.updateAllowPranaExtract(configValue)
-            "maxPranaExtractionsPerDay" -> botSettingsManager.updateMaxPranaExtractionsPerDay(configValue)
-            "maxPranaExtractionsPerHour" -> botSettingsManager.updateMaxPranaExtractionsPerHour(configValue)
-            else -> {
-                logger.warn("Unknown config $configName")
-                telegramWrapper.sendMessage("❌ Передан неизвестный конфиг $configName")
-                return
-            }
+        try {
+            botSettingsManager.updateProperty(configName, configValue)
+        } catch (ex: Exception) {
+            logger.error(ex) { "Failed to update property $configName with $configValue" }
+            telegramWrapper.sendMessage(
+                "\uD83D\uDE35\u200D\uD83D\uDCAB  Не удалось изменить настройку $configValue. Причина: ${ex.message}"
+            )
+            return
         }
 
         telegramWrapper.sendMessage("✅ Конфиг '$configName' обновлён. Новое значение: $configValue")

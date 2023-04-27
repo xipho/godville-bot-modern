@@ -1,17 +1,19 @@
 package ru.xipho.godvillebotmodern.bot.settings
 
 import com.google.gson.Gson
-import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
+import kotlin.reflect.KMutableProperty
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.isAccessible
 
 class BotSettingsManager(
     private val gson: Gson
 ) {
 
-    private val logger = LoggerFactory.getLogger(BotSettingsManager::class.java)
+    private val logger = mu.KotlinLogging.logger {  }
 
     private lateinit var botSettings: BotSettings
     private val settingsLocation: String
@@ -26,7 +28,7 @@ class BotSettingsManager(
         if (Files.exists(settingsPath)) {
             readExistingSettings(settingsPath)
         } else {
-            createDefaultSettings(settingsPath)
+            createDefaultSettings()
         }
     }
 
@@ -38,74 +40,31 @@ class BotSettingsManager(
         logger.info("Bot settings loaded.")
     }
 
-    private fun createDefaultSettings(settingsPath: Path?) {
+    private fun createDefaultSettings() {
         logger.info("No bot settings file found at $settingsLocation. Creating default one")
         botSettings = BotSettings()
-        Files.newBufferedWriter(settingsPath, StandardOpenOption.CREATE).use {
-            gson.toJson(botSettings, it)
-        }
+        saveSettings()
         logger.info("Default settings file created at $settingsLocation")
     }
 
-    fun updateCheckHealth(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                checkHealth = newValue.toBoolean()
-            )
-        )
-    }
 
-    fun updateCheckPet(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                checkPet = newValue.toBoolean()
-            )
-        )
-    }
-
-    fun updateHealthLowWarningThreshold(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                healthLowWarningThreshold = newValue.toInt()
-            )
-        )
-    }
-
-    fun updateHealthLowPercentWarningThreshold(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                healthLowWarningThreshold = newValue.toInt()
-            )
-        )
-    }
-
-    fun updateAllowPranaExtract(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                allowPranaExtract = newValue.toBoolean()
-            )
-        )
-    }
-    fun updateMaxPranaExtractionsPerDay(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                maxPranaExtractionsPerDay = newValue.toInt()
-            )
-        )
-    }
-
-    fun updateMaxPranaExtractionsPerHour(newValue: String) {
-        updateSettings(
-            botSettings.copy(
-                maxPranaExtractionsPerHour = newValue.toInt()
-            )
-        )
-    }
 
     fun viewSettings(): String = gson.toJson(botSettings)
 
-    private fun updateSettings(newSettings: BotSettings) {
-        botSettings = newSettings
+    fun updateProperty(name: String, value: String) {
+        val property = BotSettings::class.memberProperties.find { it.name == name }
+        property?.let {
+            val mutableProp = it as KMutableProperty<*>
+            mutableProp.isAccessible = true
+            when (mutableProp.returnType.toString()) {
+                "kotlin.Int" -> mutableProp.setter.call(settings, value.toInt())
+                "kotlin.Boolean" -> mutableProp.setter.call(settings, value.toBoolean())
+            }
+            saveSettings()
+        }
+    }
+
+    private fun saveSettings() {
         val settingsPath = Paths.get(settingsLocation)
         Files.newBufferedWriter(settingsPath, StandardOpenOption.CREATE).use {
             gson.toJson(botSettings, it)

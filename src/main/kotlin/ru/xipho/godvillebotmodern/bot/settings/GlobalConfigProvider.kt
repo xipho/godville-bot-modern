@@ -1,4 +1,4 @@
-package ru.xipho.godvillebotmodern.bot
+package ru.xipho.godvillebotmodern.bot.settings
 
 object GlobalConfigProvider {
 
