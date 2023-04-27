@@ -19,14 +19,18 @@ class SimpleRateLimiter(
     }
 
     private fun isActionPerHourAvailable(id: String): Boolean {
-            val safeTime = LocalDateTime.now().minusHours(1)
-            runTaskPerHourCounter[id]!!.removeIf { it.isBefore(safeTime) }
-            return runTaskPerHourCounter[id]!!.size < runsPerHour
-        }
+        val safeTime = LocalDateTime.now().minusHours(1)
+        return runTaskPerHourCounter[id]?.let { dateTimes ->
+            dateTimes.removeIf { it.isBefore(safeTime) }
+            dateTimes.size < runsPerHour
+        } ?: true
+    }
 
     private fun isActionPerFiveMinutesAvailable(id: String): Boolean {
-            val safeTime = LocalDateTime.now().minusMinutes(5)
-            runTaskPerFiveMinutesCounter[id]!!.removeIf { it.isBefore(safeTime) }
-            return runTaskPerFiveMinutesCounter.size < runsPerFiveMinutes
-        }
+        val safeTime = LocalDateTime.now().minusMinutes(5)
+        return runTaskPerFiveMinutesCounter[id]?.let { localDateTimes ->
+            localDateTimes.removeIf { it.isBefore(safeTime) }
+            localDateTimes.size < runsPerFiveMinutes
+        } ?: true
+    }
 }
