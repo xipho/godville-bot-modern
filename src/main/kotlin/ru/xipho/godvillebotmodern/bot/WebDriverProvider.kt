@@ -27,7 +27,9 @@ object WebDriverProvider {
     private fun prepareFirefoxDriver(): WebDriver {
         System.setProperty("webdriver.gecko.driver", GlobalConfigProvider.webDriverPath)
         val options = FirefoxOptions()
-        options.setHeadless(GlobalConfigProvider.browserHeadless)
+        if (GlobalConfigProvider.browserHeadless) {
+            options.addArguments("-headless")
+        }
         options.profile = FirefoxProfile()
         val driver = FirefoxDriver(options)
         driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(120))

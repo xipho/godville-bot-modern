@@ -1,60 +1,33 @@
 package ru.xipho.godvillebotmodern.bot.telegram
 
-import com.pengrad.telegrambot.TelegramBot
-import com.pengrad.telegrambot.model.request.ParseMode
-import com.pengrad.telegrambot.request.GetUpdates
-import com.pengrad.telegrambot.response.GetUpdatesResponse
-import jakarta.annotation.PostConstruct
-import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 
-@Component
 class TelegramGodvilleBotConfigurator(
-    private val bot: TelegramBot,
-    private val chatId: Long,
+    private val telegramWrapper: TelegramWrapper,
     private val botSettingsManager: BotSettingsManager
-) {
+): AutoCloseable {
 
-    private val logger = LoggerFactory.getLogger(TelegramGodvilleBotConfigurator::class.java)
+    private val logger = mu.KotlinLogging.logger {  }
 
     private var isRunning = true
     private lateinit var job: Job
 
-    @PostConstruct
     fun run() {
         job = BotScope.launch {
             while (isRunning) {
-                val request = GetUpdates()
-                val response = bot.execute(request)
-                if (response.isOk) {
-                    processUpdates(response)
+                telegramWrapper.processUpdates {
+                    val commandMessage = it.startsWith("/")
+                    if (commandMessage) {
+                        processCommandMessage(it)
+                    }
                 }
                 delay(10000)
             }
-        }
-    }
-
-    private fun processUpdates(response: GetUpdatesResponse) {
-        for (update in response.updates()) {
-            val text = update.message()?.text()
-            val chId = update.message()?.chat()?.id()
-            if (chatId == chId && text != null) {
-                val commandMessage = text.startsWith("/")
-                if (commandMessage) {
-                    processCommandMessage(text)
-                }
-            }
-        }
-
-        response.updates().maxOfOrNull { it.updateId() }?.let { lastUpdateId ->
-            bot.execute(GetUpdates().apply { offset(lastUpdateId + 1) })
         }
     }
 
@@ -65,13 +38,13 @@ class TelegramGodvilleBotConfigurator(
             "/start" -> logger.debug("Bot start command received")
             "/view-conf" -> {
                 val config = botSettingsManager.viewSettings()
-                bot.sendMessage(chatId, """[GodvilleBot] Текущий конфиг: 
+                telegramWrapper.sendMessage("""[GodvilleBot] Текущий конфиг: 
                     |```$config```
-                """.trimMargin(), ParseMode.MarkdownV2)
+                """.trimMargin(), true)
             }
             else -> {
                 logger.warn("Unsupported command $cmd")
-                bot.sendMessage(chatId, "❌ Передана неизвестная команда $cmd")
+                telegramWrapper.sendMessage("❌ Передана неизвестная команда $cmd")
             }
         }
     }
@@ -89,16 +62,15 @@ class TelegramGodvilleBotConfigurator(
             "maxPranaExtractionsPerHour" -> botSettingsManager.updateMaxPranaExtractionsPerHour(configValue)
             else -> {
                 logger.warn("Unknown config $configName")
-                bot.sendMessage(chatId, "❌ Передан неизвестный конфиг $configName")
+                telegramWrapper.sendMessage("❌ Передан неизвестный конфиг $configName")
                 return
             }
         }
 
-        bot.sendMessage(chatId, "✅ Конфиг '$configName' обновлён. Новое значение: $configValue")
+        telegramWrapper.sendMessage("✅ Конфиг '$configName' обновлён. Новое значение: $configValue")
     }
 
-    @PreDestroy
-    fun tearDown() {
+    override fun close() {
         isRunning = false
         runBlocking {
             job.join()

@@ -1,27 +1,20 @@
 package ru.xipho.godvillebotmodern.bot.notifications
 
-import jakarta.annotation.PostConstruct
-import jakarta.annotation.PreDestroy
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.GodvilleBot
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
 
-@Component
 class SimpleLoggingNotificationListener(
     private val bot: GodvilleBot
-): BotEventListener {
+): BotEventListener, AutoCloseable {
 
-    private val logger = LoggerFactory.getLogger(SimpleLoggingNotificationListener::class.java)
+    private val logger = mu.KotlinLogging.logger {  }
 
-    @PostConstruct
-    fun init() {
+    init {
         bot.subscribeToBotEvent(this)
     }
 
-    @PreDestroy
-    fun tearDown() {
+    override fun close() {
         bot.unsubscribeFromBotEvent(this)
     }
     override suspend fun invoke(event: BotEvent) {

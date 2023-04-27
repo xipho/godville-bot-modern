@@ -1,8 +1,6 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-	id("org.springframework.boot") version "3.0.5"
-	id("io.spring.dependency-management") version "1.1.0"
 	kotlin("jvm") version "1.7.22"
 }
 
@@ -17,11 +15,8 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter-quartz")
-	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-	implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
-	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 	implementation("org.seleniumhq.selenium:selenium-java:4.9.0")
 	implementation("org.seleniumhq.selenium:selenium-chrome-driver:4.8.3")
 	implementation("org.seleniumhq.selenium:selenium-chromium-driver:4.8.3")
@@ -30,11 +25,8 @@ dependencies {
 	implementation("com.squareup.okhttp3:okhttp:4.9.3")
 	implementation("org.slf4j:slf4j-api:2.0.5")
 	implementation("com.github.pengrad:java-telegram-bot-api:6.5.0")
-	implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
+	implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 	runtimeOnly("ch.qos.logback:logback-classic:1.4.6")
-
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testImplementation("io.projectreactor:reactor-test")
 }
 
 tasks.withType<KotlinCompile> {
@@ -42,6 +34,21 @@ tasks.withType<KotlinCompile> {
 		freeCompilerArgs = listOf("-Xjsr305=strict")
 		jvmTarget = "17"
 	}
+}
+
+tasks.withType<Jar> {
+	// Иначе вы получите ошибку "No main manifest attribute"
+	manifest {
+		attributes ["Main-Class"] = "ru.xipho.godvillebotmodern.GodvilleBotModernApplicationKt"
+	}
+	// Чтобы избежать ошибки дублирования стратегии обработки
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	// Чтобы добавить все зависимости, иначе ошибка "NoClassDefFoundError"
+	from (sourceSets.main.get ().output)
+	dependsOn (configurations.runtimeClasspath)
+	from ( {
+		configurations.runtimeClasspath.get ().filter { it.name.endsWith ("jar") }.map { zipTree (it) }
+	})
 }
 
 tasks.withType<Test> {

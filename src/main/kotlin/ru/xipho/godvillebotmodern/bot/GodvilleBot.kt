@@ -1,7 +1,8 @@
 package ru.xipho.godvillebotmodern.bot
 
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.api.HeroActionProvider
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
@@ -10,7 +11,6 @@ import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
 import java.time.LocalDateTime
 
-@Component
 class GodvilleBot(
     private val botSettingsManager: BotSettingsManager
 ) : AutoCloseable {
@@ -26,17 +26,27 @@ class GodvilleBot(
     private var perHourExtractions: MutableList<LocalDateTime> = mutableListOf()
 
     private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl()
+    private var isRunning = true
+    private var stopped = false
 
-    fun run() {
-        try {
-            handlePranaLevel()
-            handlePetCondition()
-            handlePossibleHeroDeath()
-            handleHealthConditions()
-            handlePranaFromInventory()
-        } catch (ex: Exception) {
-            logger.error(ex) { "Error occurred while working with page!" }
+    fun run(): Job = BotScope.launch {
+        logger.info { "Starting Godville Bot" }
+        while (isRunning) {
+            logger.trace { "Checking hero state" }
+            try {
+                handlePranaLevel()
+                handlePetCondition()
+                handlePossibleHeroDeath()
+                handleHealthConditions()
+                handlePranaFromInventory()
+            } catch (ex: Exception) {
+                logger.error(ex) { "Error occurred while working with page!" }
+            }
+
+            delay(botSettingsManager.settings.checkPeriodSeconds * 1000L)
         }
+        logger.info { "Godville Bot is going to shutdown..." }
+        stopped = true
     }
 
     private fun handlePossibleHeroDeath() {
@@ -148,8 +158,8 @@ class GodvilleBot(
                 false
             }
         } catch (ex: Exception) {
-          logger.error(ex) { "Failed to check accumulator!" }
-          false
+            logger.error(ex) { "Failed to check accumulator!" }
+            false
         }
 
     private val isPranaExtractionPossible: Boolean
@@ -212,6 +222,11 @@ class GodvilleBot(
 
     override fun close() {
         logger.info("Shutting down")
+        isRunning = false
+        while (!stopped) {
+            // do nothing, just wait
+            Thread.sleep(100)
+        }
         heroActionProvider.close()
     }
 }
