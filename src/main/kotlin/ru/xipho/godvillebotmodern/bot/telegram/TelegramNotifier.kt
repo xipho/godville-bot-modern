@@ -14,8 +14,8 @@ class TelegramNotifier(
 ): BotEventListener, AutoCloseable {
 
     private val logger = LoggerFactory.getLogger(TelegramNotifier::class.java)
-    private val usualLimiter = SimpleRateLimiter(4, 2)
-    private val urgentLimiter = SimpleRateLimiter(7, 2)
+    private val usualLimiter = SimpleRateLimiter(4, 1)
+    private val urgentLimiter = SimpleRateLimiter(7, 1)
 
     companion object {
         private const val notifierPrefix = "[GodvilleBot]:"
@@ -34,7 +34,7 @@ class TelegramNotifier(
         val message = "$notifierPrefix ${event.message}"
         val limiter = selectLimiter(event)
 
-        limiter.doRateLimited {
+        limiter.doRateLimited(message) {
             NotificationScope.launch {
                 logger.trace("Sending message $message")
                 telegramWrapper.sendMessage(message)
