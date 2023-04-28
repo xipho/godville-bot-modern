@@ -1,39 +1,31 @@
 package ru.xipho.godvillebotmodern.bot.telegram
 
-import com.pengrad.telegrambot.TelegramBot
-import jakarta.annotation.PostConstruct
-import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
 import ru.xipho.godvillebotmodern.bot.GodvilleBot
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
 import ru.xipho.godvillebotmodern.bot.async.NotificationScope
 import ru.xipho.godvillebotmodern.bot.misc.SimpleRateLimiter
 
-@Component
 class TelegramNotifier(
     private val godvilleBot: GodvilleBot,
-    private val bot: TelegramBot,
-    private val chatId: Long
-): BotEventListener {
+    private val telegramWrapper: TelegramWrapper
+): BotEventListener, AutoCloseable {
 
     private val logger = LoggerFactory.getLogger(TelegramNotifier::class.java)
-    private val usualLimiter = SimpleRateLimiter(4, 2)
-    private val urgentLimiter = SimpleRateLimiter(7, 2)
+    private val usualLimiter = SimpleRateLimiter(4, 1)
+    private val urgentLimiter = SimpleRateLimiter(7, 1)
 
     companion object {
         private const val notifierPrefix = "[GodvilleBot]:"
     }
 
-    @PostConstruct
-    fun init() {
+    init {
         godvilleBot.subscribeToBotEvent(this)
     }
 
-    @PreDestroy
-    fun tearDown() {
+    override fun close() {
         godvilleBot.unsubscribeFromBotEvent(this)
     }
 
@@ -42,10 +34,10 @@ class TelegramNotifier(
         val message = "$notifierPrefix ${event.message}"
         val limiter = selectLimiter(event)
 
-        limiter.doRateLimited {
+        limiter.doRateLimited(message) {
             NotificationScope.launch {
                 logger.trace("Sending message $message")
-                bot.sendMessage(chatId, message)
+                telegramWrapper.sendMessage(message)
             }
         }
     }

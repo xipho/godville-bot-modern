@@ -6,29 +6,31 @@ class SimpleRateLimiter(
     private val runsPerHour: Int = 3,
     private val runsPerFiveMinutes: Int = 3
 ) {
-    private val runTaskPerHourCounter: MutableList<LocalDateTime> = mutableListOf()
-    private val runTaskPerFiveMinutesCounter: MutableList<LocalDateTime> = mutableListOf()
+    private val runTaskPerHourCounter: MutableMap<String, MutableList<LocalDateTime>> = mutableMapOf()
+    private val runTaskPerFiveMinutesCounter: MutableMap<String, MutableList<LocalDateTime>> = mutableMapOf()
 
-    fun doRateLimited(action: () -> Unit) {
+    fun doRateLimited(id: String, action: () -> Unit) {
         val actionTime = LocalDateTime.now()
-        if (isActionPerHourAvailable && isActionPerFiveMinutesAvailable) {
+        if (isActionPerHourAvailable(id) && isActionPerFiveMinutesAvailable(id)) {
             action()
-            runTaskPerHourCounter.add(actionTime)
-            runTaskPerFiveMinutesCounter.add(actionTime)
+            runTaskPerHourCounter.computeIfAbsent(id) { mutableListOf() }.add(actionTime)
+            runTaskPerFiveMinutesCounter.computeIfAbsent(id) { mutableListOf() }.add(actionTime)
         }
     }
 
-    private val isActionPerHourAvailable: Boolean
-        get() {
-            val safeTime = LocalDateTime.now().minusHours(1)
-            runTaskPerHourCounter.removeIf { it.isBefore(safeTime) }
-            return runTaskPerHourCounter.size < runsPerHour
-        }
+    private fun isActionPerHourAvailable(id: String): Boolean {
+        val safeTime = LocalDateTime.now().minusHours(1)
+        return runTaskPerHourCounter[id]?.let { dateTimes ->
+            dateTimes.removeIf { it.isBefore(safeTime) }
+            dateTimes.size < runsPerHour
+        } ?: true
+    }
 
-    private val isActionPerFiveMinutesAvailable: Boolean
-        get() {
-            val safeTime = LocalDateTime.now().minusMinutes(5)
-            runTaskPerFiveMinutesCounter.removeIf { it.isBefore(safeTime) }
-            return runTaskPerFiveMinutesCounter.size < runsPerFiveMinutes
-        }
+    private fun isActionPerFiveMinutesAvailable(id: String): Boolean {
+        val safeTime = LocalDateTime.now().minusMinutes(5)
+        return runTaskPerFiveMinutesCounter[id]?.let { localDateTimes ->
+            localDateTimes.removeIf { it.isBefore(safeTime) }
+            localDateTimes.size < runsPerFiveMinutes
+        } ?: true
+    }
 }

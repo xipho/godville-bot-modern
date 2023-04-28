@@ -1,0 +1,33 @@
+<configuration>
+
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{0}: %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+    <!--        <file>/var/log/godville-bot.log</file>-->
+    <!--        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+    <!--            <fileNamePattern>/var/log/godville-bot.%d{yyyy-MM-dd}.log</fileNamePattern>-->
+    <!--            <maxHistory>30</maxHistory>-->
+    <!--        </rollingPolicy>-->
+
+    <!--        <encoder>-->
+    <!--            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%logger{0}] %-5level: %msg%n</pattern>-->
+    <!--        </encoder>-->
+    <!--    </appender>-->
+
+    <root level="info">
+        <appender-ref ref="console"/>
+        <!--        <appender-ref ref="file"/>-->
+    </root>
+
+    <property name="log_level" value="${GODVILLE_BOT_LOG_LEVEL}" defaultValue="INFO" />
+
+    <logger name="ru.xipho.godvillebotmodern.bot.GodvilleBot" level="${log_level}" />
+    <logger name="ru.xipho.godvillebotmodern.bot.telegram.TelegramNotifier" level="${log_level}" />
+    <logger name="ru.xipho.godvillebotmodern.bot.api.impl.HeroActionProviderImpl" level="${log_level}" />
+
+</configuration>

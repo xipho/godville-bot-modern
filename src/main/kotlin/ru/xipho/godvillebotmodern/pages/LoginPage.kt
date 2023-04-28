@@ -1,30 +1,20 @@
 package ru.xipho.godvillebotmodern.pages
 
+import org.openqa.selenium.By
 import org.openqa.selenium.WebDriver
 import org.openqa.selenium.WebElement
-import org.openqa.selenium.support.FindBy
-import org.openqa.selenium.support.PageFactory
 
 class LoginPage(
-    driver: WebDriver
+    private val driver: WebDriver
 ) {
 
-    @FindBy(css = "input[id='username']")
-    private lateinit var inputUsername: WebElement
+    val inputUsername: WebElement
+        get() = driver.findElement(By.cssSelector("input[id='username']"))
 
-    @FindBy(css = "input[id='password']")
-    private lateinit var inputPassword: WebElement
+    val inputPassword: WebElement
+        get() = driver.findElement(By.cssSelector("input[id='password']"))
 
-    @FindBy(css = "input[name='commit']")
-    private lateinit var inputCommit: WebElement
+    val inputCommit: WebElement
+        get() = driver.findElement(By.cssSelector("input[name='commit']"))
 
-    init {
-        PageFactory.initElements(driver, this)
-    }
-
-    fun login(userName: String, password: String) {
-        inputUsername.sendKeys(userName)
-        inputPassword.sendKeys(password)
-        inputCommit.click()
-    }
 }

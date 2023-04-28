@@ -1,243 +1,166 @@
 package ru.xipho.godvillebotmodern.bot
 
-import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.openqa.selenium.PageLoadStrategy
-import org.openqa.selenium.WebDriver
-import org.openqa.selenium.chrome.ChromeDriver
-import org.openqa.selenium.chrome.ChromeOptions
-import org.openqa.selenium.firefox.FirefoxDriver
-import org.openqa.selenium.firefox.FirefoxOptions
-import org.openqa.selenium.firefox.FirefoxProfile
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
+import ru.xipho.godvillebotmodern.bot.api.HeroActionProvider
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
+import ru.xipho.godvillebotmodern.bot.api.impl.HeroActionProviderImpl
 import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
-import ru.xipho.godvillebotmodern.pages.HeroPage
-import ru.xipho.godvillebotmodern.pages.LoginPage
-import java.time.Duration
 import java.time.LocalDateTime
-import java.util.concurrent.atomic.AtomicReference
 
-@Component
 class GodvilleBot(
     private val botSettingsManager: BotSettingsManager
-) {
-
-    private val headless: Boolean
-        get() = System.getenv(GODVILLE_BROWSER_HEADLESS)?.toBoolean() ?: false
-
-    private val username: String
-        get() = System.getenv(GODVILLE_BROWSER_USERNAME) ?: ""
-
-    private val password: String
-        get() = System.getenv(GODVILLE_BROWSER_PASSWORD) ?: ""
-
-    private val browserName: String
-        get() = System.getenv(GODVILLE_BROWSER_NAME) ?: "chrome"
-
-    private val webDriverPath: String
-        get() = System.getenv(GODVILLE_BROWSER_DRIVER_PATH) ?: ""
-
+) : AutoCloseable {
     companion object {
-        private const val domain: String = "https://godville.net"
-        private const val domain2: String = "https://godville.net/"
-        private const val heroPage: String = "/superhero"
-        private const val GODVILLE_BROWSER_HEADLESS = "GODVILLE_BROWSER_HEADLESS"
-        private const val GODVILLE_BROWSER_USERNAME = "GODVILLE_BROWSER_USERNAME"
-        private const val GODVILLE_BROWSER_PASSWORD = "GODVILLE_BROWSER_PASSWORD"
-        private const val GODVILLE_BROWSER_NAME = "GODVILLE_BROWSER_NAME"
-        private const val GODVILLE_BROWSER_DRIVER_PATH = "GODVILLE_BROWSER_DRIVER_PATH"
-        private val logger = LoggerFactory.getLogger(GodvilleBot::class.java)
+        private val logger = mu.KotlinLogging.logger { }
+        private const val MINIMUM_ACCEPTABLE_PRANA_LEVEL = 25
+        private const val MAXIMUM_ACCEPTABLE_PRANA_LEVEL = 75
     }
 
     private val botEventListeners: MutableList<BotEventListener> = mutableListOf()
-    private val driver: WebDriver
 
     private var perDayExtractions: MutableList<LocalDateTime> = mutableListOf()
     private var perHourExtractions: MutableList<LocalDateTime> = mutableListOf()
 
-    @Volatile
-    private var runState: AtomicReference<RunState> = AtomicReference(RunState.RUNNING)
+    private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl()
+    private var isRunning = true
+    private var stopped = false
 
-    init {
-        driver = when (browserName) {
-            "chrome" -> prepareChromeDriver()
-            "firefox" -> prepareFirefoxDriver()
-            else -> throw IllegalArgumentException("Unsupported browser '$browserName'")
-        }
-    }
-
-    private fun prepareFirefoxDriver(): WebDriver {
-        System.setProperty("webdriver.gecko.driver", webDriverPath)
-        val options = FirefoxOptions()
-        options.setHeadless(headless)
-        options.profile = FirefoxProfile()
-        val driver = FirefoxDriver(options)
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(120))
-        return driver
-    }
-
-    private fun prepareChromeDriver(): WebDriver {
-        System.setProperty("webdriver.chrome.driver", webDriverPath)
-        val options = ChromeOptions()
-        options.addArguments("--window-size=1280,720")
-        options.addArguments("enable-automation")
-        options.addArguments("--no-sandbox")
-        options.addArguments("--disable-dev-shm-usage")
-        options.addArguments("--disable-browser-side-navigation")
-        options.addArguments("--disable-gpu")
-        options.addArguments("--disable-extensions")
-        options.addArguments("--dns-prefetch-disable")
-        options.addArguments("--disable-gpu")
-        options.addArguments("--ignore-ssl-errors")
-        options.addArguments("--log-level=3")
-        options.addArguments("enable-features=NetworkServiceInProcess")
-        options.addArguments("disable-features=NetworkService")
-        options.setPageLoadStrategy(PageLoadStrategy.NORMAL)
-        if (headless) {
-            options.addArguments("--headless=new")
-        }
-        val driver = ChromeDriver(options)
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(120))
-        return driver
-    }
-
-    suspend fun run() {
-        if (runState.get() != RunState.RUNNING) {
-            logger.warn("RunState is not RUNNING. Exiting")
-            return
-        }
-
-        logger.trace("Checking hero state...")
-
-        if (!driver.currentUrl.endsWith(heroPage)) {
-            if (!isOnLoginPage) {
-                driver.navigate().to(domain)
+    fun run(): Job = BotScope.launch {
+        logger.info { "Starting Godville Bot" }
+        while (isRunning) {
+            logger.trace { "Checking hero state" }
+            try {
+                handlePranaLevel()
+                handlePetCondition()
+                handlePossibleHeroDeath()
+                handleHealthConditions()
+                handlePranaFromInventory()
+            } catch (ex: Exception) {
+                logger.error(ex) { "Error occurred while working with page!" }
             }
-            runOnLoginPageCycle()
-        } else {
-            runMainCycle()
+
+            delay(botSettingsManager.settings.checkPeriodSeconds * 1000L)
         }
+        logger.info { "Godville Bot is going to shutdown..." }
+        stopped = true
     }
 
-    private val isOnLoginPage: Boolean
-        get() = driver.currentUrl == domain || driver.currentUrl == domain2 || driver.currentUrl.endsWith("/login")
-
-    private fun runOnLoginPageCycle() {
-        val page = LoginPage(driver)
-        page.login(username, password)
-        if (!driver.currentUrl.endsWith(heroPage)) {
-            logger.error("Something went wrong! Failed to login! Will try on next cycle")
-            return
-        }
-        runState.set(RunState.RUNNING)
-    }
-
-    private suspend fun runMainCycle() {
-        if (!driver.currentUrl.endsWith(heroPage)) {
-            return
-        }
-
-        try {
-            val page = HeroPage(driver)
-
-            handlePranaLevel(page)
-            handlePetCondition(page)
-            handlePossibleHeroDeath(page)
-            handleHealthConditions(page)
-            handlePranaFromInventory(page)
+    private fun handlePossibleHeroDeath() {
+        val heroHealth = try {
+            heroActionProvider.getHealth()
         } catch (ex: Exception) {
-            logger.error("Error occurred while working with page!", ex)
+            logger.error(ex) { "failed to get hero health" }
+            return
         }
-    }
 
-    private fun handlePossibleHeroDeath(page: HeroPage) {
-        if (page.getHealth() == 0) {
+        if (heroHealth == 0) {
             onBotEvent("\uD83D\uDE35 Герой всё. Пытаемся воскресить!", urgent = true)
-            if (!page.resurrect()) {
-                onBotEvent("❗️ Воскресить героя не удалось! Требуется вмешательство!", urgent = true)
-            }
+            tryResurrect()
         }
     }
 
-    private suspend fun handlePranaFromInventory(page: HeroPage) {
-        logger.trace("Checking if hero have prana in his inventory")
-        while (page.havePranaInInventory) {
-            if (page.getCurrentPrana() < 75) {
-                logger.trace("Hero have prana in inventory. Unpacking")
-                page.useFirstPranaFromInventory()
-            }
-            delay(500)
+    private fun tryResurrect() {
+        try {
+            heroActionProvider.resurrect()
+        } catch (ex: Exception) {
+            onBotEvent("❗️ Воскресить героя не удалось! Требуется вмешательство!", urgent = true)
         }
     }
 
-    private fun handleHealthConditions(page: HeroPage) {
+    private fun handlePranaFromInventory() {
+        try {
+            if (heroActionProvider.getCurrentPrana() < MAXIMUM_ACCEPTABLE_PRANA_LEVEL) {
+                logger.trace { "Using prana from inventory if have it" }
+                heroActionProvider.useFirstPranaFromInventoryIfHave()
+            }
+        } catch (ex: Exception) {
+            logger.error(ex) { "Failed to fill prana from inventory" }
+        }
+    }
+
+    private fun handleHealthConditions() {
         if (!botSettingsManager.settings.checkHealth) {
             logger.warn("Health check is disabled")
             return
         }
-        val healthInPercents = page.getHealthPercent()
+        try {
+            val healthInPercents = heroActionProvider.getHealthPercent()
 
-        if (healthInPercents < botSettingsManager.settings.healthLowPercentWarningThreshold) {
-            if (page.getCurrentPrana() > 25) {
-                logger.debug("Healing our hero")
-                page.makeGood()
-            } else {
-                logger.warn("Not enough prana to heal hero")
+            if (healthInPercents < botSettingsManager.settings.healthLowPercentWarningThreshold) {
+                if (heroActionProvider.getCurrentPrana() > MINIMUM_ACCEPTABLE_PRANA_LEVEL) {
+                    logger.debug("Healing our hero")
+                    heroActionProvider.makeGood()
+                } else {
+                    logger.warn("Not enough prana to heal hero")
+                }
             }
+        } catch (ex: Exception) {
+            logger.error(ex) { "Failed to check health conditions!" }
         }
     }
 
-    private fun handlePetCondition(page: HeroPage) {
+    private fun handlePetCondition() {
         if (!botSettingsManager.settings.checkPet) {
             logger.warn("Pet check is disabled")
             return
         }
-        val petOk = page.isPetOk()
-        if (!petOk) {
-            val money = page.getMoney()
-            onBotEvent("\uD83D\uDE31 БЕДА!!! Питомца контузило!!!")
-            val neededMoney = page.getNeededForPetRessurrectMoney()
-            if (money >= neededMoney) {
-                onBotEvent("\uD83E\uDD11 Есть бабло на починку питомца! Действуй!")
+        try {
+            val petOk = heroActionProvider.isPetOk()
+            if (!petOk) {
+                val money = heroActionProvider.getMoney()
+                onBotEvent("\uD83D\uDE31 БЕДА!!! Питомца контузило!!!")
+                val neededMoney = heroActionProvider.getNeededForPetResurrectMoney()
+                if (money >= neededMoney) {
+                    onBotEvent("\uD83E\uDD11 Есть бабло на починку питомца! Действуй!")
+                }
             }
+        } catch (ex: Exception) {
+            logger.error(ex) { "Failed to handle pet condition!" }
         }
     }
 
-    private fun handlePranaLevel(page: HeroPage) {
-        val currentPranaLevel = page.getCurrentPrana()
+    private fun handlePranaLevel() {
+        try {
+            val currentPranaLevel = heroActionProvider.getCurrentPrana()
 
-        if (currentPranaLevel < 25) {
-            if (isPranaAccumulatorEmpty(page)) {
-                return
+            if (currentPranaLevel < MINIMUM_ACCEPTABLE_PRANA_LEVEL) {
+                if (isPranaAccumulatorEmpty) {
+                    return
+                }
+                if (isPranaExtractionPossible) {
+                    onBotEvent("\uD83D\uDE4F Маловато праны, распаковываем из аккумулятора!")
+                    heroActionProvider.extractPrana()
+                    val now = LocalDateTime.now()
+                    perDayExtractions.add(now)
+                    perHourExtractions.add(now)
+                }
             }
-            if (isPranaExtractionPossible) {
-                onBotEvent("\uD83D\uDE4F Маловато праны, распаковываем из аккумулятора!")
-                page.extractPrana()
-                val now = LocalDateTime.now()
-                perDayExtractions.add(now)
-                perHourExtractions.add(now)
-            }
+        } catch (ex: Exception) {
+            logger.error(ex) { "Failed to handle prana level" }
         }
     }
 
-    private fun isPranaAccumulatorEmpty(page: HeroPage): Boolean {
-        val pranaInAccum = page.getAccum()
-        return if (pranaInAccum <= 0) {
-            onBotEvent(
-                "\uD83D\uDED1 В аккумуляторе закончилась прана! Пополни запасы как можно скорее!",
+    private val isPranaAccumulatorEmpty: Boolean
+        get() = try {
+            val pranaInAccum = heroActionProvider.getAccum()
+            if (pranaInAccum <= 0) {
+                onBotEvent(
+                    "\uD83D\uDED1 В аккумуляторе закончилась прана! Пополни запасы как можно скорее!",
+                    true
+                )
+                logger.warn("No prana in accumulator left!")
                 true
-            )
-            logger.warn("No prana in accumulator left!")
-            true
-        } else {
+            } else {
+                false
+            }
+        } catch (ex: Exception) {
+            logger.error(ex) { "Failed to check accumulator!" }
             false
         }
-    }
 
     private val isPranaExtractionPossible: Boolean
         get() {
@@ -264,29 +187,25 @@ class GodvilleBot(
                     | Лимит в час: ${!perHourExtractionAvailable}
                 """.trimMargin(), true
                 )
-                logger.warn("Extraction denied due to limits.")
-                logger.warn("Per day extraction limit reached: ${!perDayExtractionAvailable}")
-                logger.warn("Per hour extraction limit reached: ${!perHourExtractionAvailable}")
+                logger.warn { "Extraction denied due to limits." }
+                logger.warn { "Per day extraction limit reached: ${!perDayExtractionAvailable}" }
+                logger.warn { "Per hour extraction limit reached: ${!perHourExtractionAvailable}" }
                 false
             }
         }
 
-    private fun runGracefulShutdownCycle() {
-        logger.info("Shutting down")
-        driver.quit()
-    }
-
     fun subscribeToBotEvent(listener: BotEventListener) {
         if (botEventListeners.indexOf(listener) != -1) {
+            logger.warn { "${listener.javaClass} already subscribed" }
             return
         }
         botEventListeners.add(listener)
-        logger.info("New bot event listener subscribed: ${listener.javaClass}")
+        logger.info { "New bot event listener subscribed: ${listener.javaClass}" }
     }
 
     fun unsubscribeFromBotEvent(listener: BotEventListener) {
         botEventListeners.remove(listener)
-        logger.info("Bot event listener unsubscribed: ${listener.javaClass}")
+        logger.info { "Bot event listener unsubscribed: ${listener.javaClass}" }
     }
 
     private fun onBotEvent(
@@ -301,14 +220,13 @@ class GodvilleBot(
         }
     }
 
-    @PreDestroy
-    fun tearDown() {
-        runState.set(RunState.SHUTDOWN)
-        runGracefulShutdownCycle()
-    }
-
-    enum class RunState {
-        RUNNING,
-        SHUTDOWN,
+    override fun close() {
+        logger.info("Shutting down")
+        isRunning = false
+        while (!stopped) {
+            // do nothing, just wait
+            Thread.sleep(100)
+        }
+        heroActionProvider.close()
     }
 }
