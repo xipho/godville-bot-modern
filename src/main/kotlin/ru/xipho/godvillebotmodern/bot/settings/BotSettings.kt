@@ -8,5 +8,4 @@ data class BotSettings(
     var healthLowPercentWarningThreshold: Int = 30,
     var allowPranaExtract: Boolean = true,
     var maxPranaExtractionsPerDay: Int = 10,
-    var maxPranaExtractionsPerHour: Int = 2,
 )

@@ -1,25 +1,21 @@
 package ru.xipho.godvillebotmodern.bot.telegram
 
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import ru.xipho.godvillebotmodern.bot.async.BotScope
-import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
+import ru.xipho.godvillebotmodern.bot.flows.EventBus
+import ru.xipho.godvillebotmodern.bot.settings.BotSettingsProvider
 
 class TelegramGodvilleBotCommandProcessor(
     private val telegramWrapper: TelegramWrapper,
-    private val botSettingsManager: BotSettingsManager
+    private val botSettingsProvider: BotSettingsProvider,
 ): AutoCloseable {
 
     private val logger = mu.KotlinLogging.logger {  }
+    private val job: Job
 
-    private var isRunning = true
-    private lateinit var job: Job
-
-    fun run() {
+    init {
         job = BotScope.launch {
-            while (isRunning) {
+            while (isActive) {
                 telegramWrapper.processUpdates {
                     val commandMessage = it.startsWith("/")
                     if (commandMessage) {
@@ -37,7 +33,7 @@ class TelegramGodvilleBotCommandProcessor(
             "/config" -> processConfigCommand(fullCommand[1] to fullCommand[2])
             "/start" -> logger.debug("Bot start command received")
             "/view-conf" -> {
-                val config = botSettingsManager.viewSettings()
+                val config = EventBus.settingsFlow.value
                 telegramWrapper.sendMessage("""[GodvilleBot] Текущий конфиг: 
                     |```
                     |$config
@@ -53,9 +49,8 @@ class TelegramGodvilleBotCommandProcessor(
 
     private fun processConfigCommand(command: Pair<String, String>) {
         val (configName, configValue) = command
-
         try {
-            botSettingsManager.updateProperty(configName, configValue)
+            botSettingsProvider.updateProperty(configName, configValue)
         } catch (ex: Exception) {
             logger.error(ex) { "Failed to update property $configName with $configValue" }
             telegramWrapper.sendMessage(
@@ -68,8 +63,7 @@ class TelegramGodvilleBotCommandProcessor(
     }
 
     override fun close() {
-        isRunning = false
-        runBlocking {
+        runBlocking(Dispatchers.IO) {
             job.join()
         }
     }

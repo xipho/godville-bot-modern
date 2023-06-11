@@ -1,11 +1,9 @@
 package ru.xipho.godvillebotmodern.bot.async
 
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ForkJoinPool
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
 object NotificationScope : CoroutineScope {
@@ -28,4 +26,25 @@ object BotScope : CoroutineScope {
             CoroutineExceptionHandler { context, exception ->
                 logger.error(context.toString(), exception)
             } + CoroutineName("Bot")
+}
+
+class CustomClosableScope(
+    scopeName: String = "CustomClosableScope"
+): CoroutineScope, AutoCloseable {
+
+    private val job = Job()
+
+    override val coroutineContext: CoroutineContext = job + Dispatchers.Default + CoroutineName(scopeName)
+
+    override fun close() {
+        job.cancel()
+    }
+}
+
+object FlowScope: CoroutineScope {
+    override val coroutineContext: CoroutineContext = Dispatchers.Default + CoroutineName("FlowScope")
+}
+
+object NotificationsScope: CoroutineScope {
+    override val coroutineContext: CoroutineContext = Dispatchers.Default + CoroutineName("NotificationScope")
 }
