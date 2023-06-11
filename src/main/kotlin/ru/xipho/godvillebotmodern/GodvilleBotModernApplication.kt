@@ -23,11 +23,11 @@ suspend fun main() {
 		.create()
 	settingsProvider = BotSettingsProvider(gson)
 	stateProvider = HeroStateProvider()
-	val bot = GodvilleBot()
 	simpleNotifier = SimpleLoggingNotificationListener()
 	val telegramWrapper = TelegramWrapper()
 	telegramNotifier = TelegramNotifier(telegramWrapper)
 	botConfigurator = TelegramGodvilleBotCommandProcessor(telegramWrapper, settingsProvider)
+	val bot = GodvilleBot()
 
 	Runtime.getRuntime().addShutdownHook(object:Thread() {
 		override fun run() {

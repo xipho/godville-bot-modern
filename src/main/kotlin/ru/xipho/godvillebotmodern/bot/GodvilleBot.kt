@@ -1,9 +1,9 @@
 package ru.xipho.godvillebotmodern.bot
 
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
 import ru.xipho.godvillebotmodern.bot.api.HeroActionProvider
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.api.impl.HeroActionProviderImpl
@@ -23,24 +23,27 @@ class GodvilleBot: AutoCloseable {
     private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl()
     private lateinit var pranaExtractionLimiter: ActionRateLimiter
     private val job: Job
+    private val semaphore = Semaphore(1)
 
     init {
         job = BotScope.launch {
             logger.info { "Starting Godville Bot" }
-            while (isActive) {
+            EventBus.stateFlow.onEach {
                 logger.trace { "Checking hero state" }
                 val settings = EventBus.settingsFlow.value
-                val heroState = EventBus.stateFlow.value!!
-                try {
-                    handlePranaLevel(heroState, settings)
-                    handlePetCondition(heroState, settings)
-                    handlePossibleHeroDeath(heroState)
-                    handleHealthConditions(heroState, settings)
-                } catch (ex: Exception) {
-                    logger.error(ex) { "Error occurred while working with page!" }
-                }
-                delay(settings.checkPeriodSeconds * 1000L)
+                EventBus.stateFlow.value?.let { heroState ->
+                    try {
+                        handlePranaLevel(heroState, settings)
+                        handlePetCondition(heroState, settings)
+                        handlePossibleHeroDeath(heroState)
+                        handleHealthConditions(heroState, settings)
+                    } catch (ex: Exception) {
+                        logger.error(ex) { "Error occurred while working with page!" }
+                    }
+                } ?: logger.trace { "Hero state is empty for now. Waiting for actual state..." }
             }
+            semaphore.acquire()
+            semaphore.acquire()
             logger.info { "Godville Bot is going to shutdown..." }
         }
     }
@@ -156,6 +159,7 @@ class GodvilleBot: AutoCloseable {
 
     override fun close() {
         logger.info("Shutting down")
+        semaphore.release()
         job.cancel()
         heroActionProvider.close()
     }

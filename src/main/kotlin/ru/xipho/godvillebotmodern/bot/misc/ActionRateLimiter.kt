@@ -12,9 +12,9 @@ class ActionRateLimiter(
 
     fun doRateLimited(action: () -> Unit) {
         val safePeriod = interval.seconds / allowedActions
-        val safeTime = lastActionTime.plusSeconds(safePeriod)
+        val now = LocalDateTime.now()
+        val safeTime = now.minusSeconds(safePeriod)
         if (lastActionTime.isBefore(safeTime)) {
-            val now = LocalDateTime.now()
             action.invoke()
             lastActionTime = now
         }

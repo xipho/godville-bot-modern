@@ -63,8 +63,10 @@ class TelegramGodvilleBotCommandProcessor(
     }
 
     override fun close() {
+        logger.info { "Closing telegram command processor" }
         runBlocking(Dispatchers.IO) {
-            job.join()
+            job.cancel()
         }
+        logger.info { "Telegram command processor closed" }
     }
 }

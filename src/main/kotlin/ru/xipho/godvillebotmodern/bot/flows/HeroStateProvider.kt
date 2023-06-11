@@ -50,7 +50,9 @@ class HeroStateProvider(
     }
 
     override fun close() {
+        logger.info { "Closing hero state provider" }
         scope.close()
+        logger.info { "Hero state provider closed" }
     }
 
     companion object {

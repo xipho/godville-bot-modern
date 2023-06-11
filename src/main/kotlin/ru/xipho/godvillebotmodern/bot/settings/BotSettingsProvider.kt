@@ -48,19 +48,19 @@ class BotSettingsProvider(
     }
 
     private fun readExistingSettings(settingsPath: Path): BotSettings {
-        logger.info("Bot settings file found at $settingsLocation. Trying to load")
+        logger.trace("Bot settings file found at $settingsLocation. Trying to load")
         val botSettings = Files.newBufferedReader(settingsPath).use {
             gson.fromJson(it, BotSettings::class.java)
         }
-        logger.info("Bot settings loaded.")
+        logger.trace { "Bot settings loaded." }
         return botSettings
     }
 
     private fun createDefaultSettings(): BotSettings {
-        logger.info("No bot settings file found at $settingsLocation. Creating default one")
+        logger.trace("No bot settings file found at $settingsLocation. Creating default one")
         val defaultSettings = BotSettings()
         saveSettings(defaultSettings)
-        logger.info("Default settings file created at $settingsLocation")
+        logger.trace("Default settings file created at $settingsLocation")
         return defaultSettings
     }
 
@@ -87,6 +87,8 @@ class BotSettingsProvider(
     }
 
     override fun close() {
+        logger.info { "Closing settings provider" }
         settingsScope.close()
+        logger.info { "Settings provider closed" }
     }
 }
