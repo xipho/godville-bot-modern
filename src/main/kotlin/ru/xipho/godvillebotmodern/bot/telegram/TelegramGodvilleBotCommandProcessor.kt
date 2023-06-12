@@ -6,6 +6,7 @@ import ru.xipho.godvillebotmodern.bot.flows.EventBus
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsProvider
 
 class TelegramGodvilleBotCommandProcessor(
+    private val eventBus: EventBus,
     private val telegramWrapper: TelegramWrapper,
     private val botSettingsProvider: BotSettingsProvider,
 ): AutoCloseable {
@@ -33,7 +34,7 @@ class TelegramGodvilleBotCommandProcessor(
             "/config" -> processConfigCommand(fullCommand[1] to fullCommand[2])
             "/start" -> logger.debug("Bot start command received")
             "/view-conf" -> {
-                val config = EventBus.settingsFlow.value
+                val config = eventBus.settingsFlow.value
                 telegramWrapper.sendMessage("""[GodvilleBot] Текущий конфиг: 
                     |```
                     |$config

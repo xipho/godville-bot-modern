@@ -8,13 +8,14 @@ import ru.xipho.godvillebotmodern.bot.async.NotificationScope
 import ru.xipho.godvillebotmodern.bot.flows.EventBus
 
 class TelegramNotifier(
+    private val eventBus: EventBus,
     private val telegramWrapper: TelegramWrapper
 ): AutoCloseable {
 
     private val logger = mu.KotlinLogging.logger {  }
 
     private val job: Job = NotificationScope.launch {
-        EventBus.botEventFlow.onEach {
+        eventBus.botEventFlow.onEach {
             runInterruptible(NotificationScope.coroutineContext) {
                 logger.trace("Received event $it")
                 val message = "$notifierPrefix ${it.message}"

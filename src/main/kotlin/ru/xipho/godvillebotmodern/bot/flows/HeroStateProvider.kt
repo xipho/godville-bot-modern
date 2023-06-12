@@ -10,7 +10,9 @@ import ru.xipho.godvillebotmodern.bot.async.CustomClosableScope
 import java.time.Duration
 
 class HeroStateProvider(
-    private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl()
+    private val eventBus: EventBus,
+    private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl(),
+    private val stateDelay: Duration = Duration.ofSeconds(10)
 ) : AutoCloseable {
 
     private val scope = CustomClosableScope("HeroStateScope")
@@ -19,14 +21,14 @@ class HeroStateProvider(
         scope.launch {
             while (this.isActive) {
                 getAndEmitHeroState()
-                delay(Duration.ofSeconds(10).toMillis())
+                delay(stateDelay.toMillis())
             }
         }
     }
 
     private suspend fun getAndEmitHeroState() = runInterruptible(scope.coroutineContext) {
         try {
-            EventBus.emitHeroState(
+            eventBus.emitHeroState(
                 HeroState(
                     healthPercent = heroActionProvider.getHealthPercent(),
                     money = heroActionProvider.getMoney(),

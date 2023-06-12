@@ -9,7 +9,9 @@ import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
 import ru.xipho.godvillebotmodern.bot.async.FlowScope
 import ru.xipho.godvillebotmodern.bot.settings.BotSettings
 
-object EventBus {
+class EventBus {
+
+    private val logger = mu.KotlinLogging.logger { }
 
     private val _stateFlow = MutableStateFlow<HeroState?>(null)
     val stateFlow = _stateFlow as StateFlow<HeroState?>
@@ -21,7 +23,9 @@ object EventBus {
     val botEventFlow = _botEventFlow as SharedFlow<BotEvent>
 
     fun emitHeroState(state: HeroState) = FlowScope.launch {
+        logger.trace { "Emitting $state" }
         _stateFlow.emit(state)
+        logger.trace { "Emitted $state" }
     }
 
     fun emitSettingsChange(botSettings: BotSettings) = FlowScope.launch {
@@ -29,6 +33,8 @@ object EventBus {
     }
 
     fun emitBotEvent(event: BotEvent) = FlowScope.launch {
+        logger.trace { "Emitting bot event $event" }
         _botEventFlow.emit(event)
+        logger.trace { "Emitted bot event $event" }
     }
 }

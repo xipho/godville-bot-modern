@@ -17,6 +17,7 @@ import kotlin.reflect.jvm.isAccessible
 import kotlin.time.toKotlinDuration
 
 class BotSettingsProvider(
+    private val eventBus: EventBus,
     private val gson: Gson
 ) : AutoCloseable {
 
@@ -33,7 +34,7 @@ class BotSettingsProvider(
                 val settingsPath = Paths.get(settingsLocation)
                 val newSettings = actualizeSettings(settingsPath)
                 if (newSettings != settings) {
-                    EventBus.emitSettingsChange(newSettings)
+                    eventBus.emitSettingsChange(newSettings)
                     settings = newSettings
                 }
                 delay(Duration.ofSeconds(10).toKotlinDuration())
@@ -72,7 +73,7 @@ class BotSettingsProvider(
     }
 
     fun updateProperty(name: String, value: String) {
-        val settings = EventBus.settingsFlow.value
+        val settings = eventBus.settingsFlow.value
         val property = BotSettings::class.memberProperties.find { it.name == name }
         property?.let {
             val mutableProp = it as KMutableProperty<*>
@@ -81,7 +82,7 @@ class BotSettingsProvider(
                 "kotlin.Int" -> mutableProp.setter.call(settings, value.toInt())
                 "kotlin.Boolean" -> mutableProp.setter.call(settings, value.toBoolean())
             }
-            EventBus.emitSettingsChange(settings)
+            eventBus.emitSettingsChange(settings)
             saveSettings(settings)
         }
     }
