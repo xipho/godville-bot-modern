@@ -7,7 +7,7 @@ import ru.xipho.godvillebotmodern.bot.settings.GlobalConfigProvider
 import ru.xipho.godvillebotmodern.pages.HeroPage
 import ru.xipho.godvillebotmodern.pages.LoginPage
 
-class HeroActionProviderImpl: HeroActionProvider {
+class HeroActionProviderImpl : HeroActionProvider {
 
     private val logger = mu.KotlinLogging.logger { }
 
@@ -54,9 +54,15 @@ class HeroActionProviderImpl: HeroActionProvider {
     }
 
     private fun login(userName: String, password: String) {
-        loginPage.inputUsername.sendKeys(userName)
-        loginPage.inputPassword.sendKeys(password)
-        loginPage.inputCommit.click()
+        try {
+            loginPage.inputUsername.sendKeys(userName)
+            loginPage.inputPassword.sendKeys(password)
+            loginPage.inputCommit.click()
+        } catch (ex: Exception) {
+            logger.error(ex) {
+                ex.message
+            }
+        }
     }
 
     override fun getHealth(): Int = checkOnHeroPageAndDoAction {
@@ -80,7 +86,11 @@ class HeroActionProviderImpl: HeroActionProvider {
     override fun getNeededForPetResurrectMoney(): Int = checkOnHeroPageAndDoAction {
         val healMoney = heroPage.petHealMoney.text.replace(moneyRegex, "$1")
         logger.trace("Money to heal pet need: $healMoney")
-        healMoney.toInt()
+        if (healMoney.isEmpty()) {
+            0
+        } else {
+            healMoney.toInt()
+        }
     }
 
     override fun getAccum(): Int = checkOnHeroPageAndDoAction {

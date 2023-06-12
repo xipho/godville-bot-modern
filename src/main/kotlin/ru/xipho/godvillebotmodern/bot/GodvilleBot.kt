@@ -1,64 +1,60 @@
 package ru.xipho.godvillebotmodern.bot
 
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.sync.Semaphore
 import ru.xipho.godvillebotmodern.bot.api.HeroActionProvider
 import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
-import ru.xipho.godvillebotmodern.bot.api.events.BotEventListener
 import ru.xipho.godvillebotmodern.bot.api.impl.HeroActionProviderImpl
-import ru.xipho.godvillebotmodern.bot.async.BotScope
-import ru.xipho.godvillebotmodern.bot.settings.BotSettingsManager
-import java.time.LocalDateTime
+import ru.xipho.godvillebotmodern.bot.async.FlowScope
+import ru.xipho.godvillebotmodern.bot.flows.EventBus
+import ru.xipho.godvillebotmodern.bot.flows.HeroState
+import ru.xipho.godvillebotmodern.bot.misc.ActionRateLimiter
+import ru.xipho.godvillebotmodern.bot.settings.BotSettings
+import java.time.Duration
 
 class GodvilleBot(
-    private val botSettingsManager: BotSettingsManager
+    private val eventBus: EventBus,
+    private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl(),
 ) : AutoCloseable {
     companion object {
         private val logger = mu.KotlinLogging.logger { }
         private const val MINIMUM_ACCEPTABLE_PRANA_LEVEL = 25
-        private const val MAXIMUM_ACCEPTABLE_PRANA_LEVEL = 75
     }
 
-    private val botEventListeners: MutableList<BotEventListener> = mutableListOf()
+    private lateinit var pranaExtractionLimiter: ActionRateLimiter
+    private val semaphore = Semaphore(permits = 1, acquiredPermits = 1)
 
-    private var perDayExtractions: MutableList<LocalDateTime> = mutableListOf()
-    private var perHourExtractions: MutableList<LocalDateTime> = mutableListOf()
-
-    private val heroActionProvider: HeroActionProvider = HeroActionProviderImpl()
-    private var isRunning = true
-    private var stopped = false
-
-    fun run(): Job = BotScope.launch {
+    init {
         logger.info { "Starting Godville Bot" }
-        while (isRunning) {
+        startHandlingStateEvents()
+    }
+
+    private fun startHandlingStateEvents() {
+        eventBus.stateFlow.onEach { heroState ->
+
+            if (heroState == null) {
+                logger.trace { "Hero state is empty for now. Waiting for actual state..." }
+                return@onEach
+            }
+
             logger.trace { "Checking hero state" }
+
+            val settings = eventBus.settingsFlow.value
             try {
-                handlePranaLevel()
-                handlePetCondition()
-                handlePossibleHeroDeath()
-                handleHealthConditions()
-                handlePranaFromInventory()
+                handlePranaLevel(heroState, settings)
+                handlePetCondition(heroState, settings)
+                handlePossibleHeroDeath(heroState)
+                handleHealthConditions(heroState, settings)
             } catch (ex: Exception) {
                 logger.error(ex) { "Error occurred while working with page!" }
             }
-
-            delay(botSettingsManager.settings.checkPeriodSeconds * 1000L)
-        }
-        logger.info { "Godville Bot is going to shutdown..." }
-        stopped = true
+        }.launchIn(FlowScope)
     }
 
-    private fun handlePossibleHeroDeath() {
-        val heroHealth = try {
-            heroActionProvider.getHealth()
-        } catch (ex: Exception) {
-            logger.error(ex) { "failed to get hero health" }
-            return
-        }
-
-        if (heroHealth == 0) {
-            onBotEvent("\uD83D\uDE35 Герой всё. Пытаемся воскресить!", urgent = true)
+    private fun handlePossibleHeroDeath(heroState: HeroState) {
+        if (heroState.healthPercent == 0) {
+            onBotEvent(BotEventConstants.BOT_EVENT_HERO_DEAD_TEXT, urgent = true)
             tryResurrect()
         }
     }
@@ -67,55 +63,43 @@ class GodvilleBot(
         try {
             heroActionProvider.resurrect()
         } catch (ex: Exception) {
-            onBotEvent("❗️ Воскресить героя не удалось! Требуется вмешательство!", urgent = true)
+            onBotEvent(BotEventConstants.BOT_EVENT_FAILED_RESURRECT_HERO_TEXT, urgent = true)
         }
     }
 
-    private fun handlePranaFromInventory() {
-        try {
-            if (heroActionProvider.getCurrentPrana() < MAXIMUM_ACCEPTABLE_PRANA_LEVEL) {
-                logger.trace { "Using prana from inventory if have it" }
-                heroActionProvider.useFirstPranaFromInventoryIfHave()
-            }
-        } catch (ex: Exception) {
-            logger.error(ex) { "Failed to fill prana from inventory" }
-        }
-    }
-
-    private fun handleHealthConditions() {
-        if (!botSettingsManager.settings.checkHealth) {
+    private fun handleHealthConditions(heroState: HeroState, settings: BotSettings) {
+        if (!settings.checkHealth) {
             logger.warn("Health check is disabled")
             return
         }
-        try {
-            val healthInPercents = heroActionProvider.getHealthPercent()
 
-            if (healthInPercents < botSettingsManager.settings.healthLowPercentWarningThreshold) {
-                if (heroActionProvider.getCurrentPrana() > MINIMUM_ACCEPTABLE_PRANA_LEVEL) {
-                    logger.debug("Healing our hero")
+        if (heroState.healthPercent < settings.healthLowPercentWarningThreshold) {
+            if (heroState.pranaLevel > MINIMUM_ACCEPTABLE_PRANA_LEVEL) {
+                logger.debug("Healing our hero")
+                try {
                     heroActionProvider.makeGood()
-                } else {
-                    logger.warn("Not enough prana to heal hero")
+                } catch (ex: Exception) {
+                    logger.error(ex) { "Failed to heal hero" }
+                    onBotEvent(BotEventConstants.BOT_EVENT_HEAL_FAILED_TEXT)
                 }
+            } else {
+                logger.warn("Not enough prana to heal hero")
             }
-        } catch (ex: Exception) {
-            logger.error(ex) { "Failed to check health conditions!" }
         }
     }
 
-    private fun handlePetCondition() {
-        if (!botSettingsManager.settings.checkPet) {
+    private fun handlePetCondition(heroState: HeroState, settings: BotSettings) {
+        if (!settings.checkPet) {
             logger.warn("Pet check is disabled")
             return
         }
         try {
-            val petOk = heroActionProvider.isPetOk()
-            if (!petOk) {
-                val money = heroActionProvider.getMoney()
-                onBotEvent("\uD83D\uDE31 БЕДА!!! Питомца контузило!!!")
-                val neededMoney = heroActionProvider.getNeededForPetResurrectMoney()
-                if (money >= neededMoney) {
-                    onBotEvent("\uD83E\uDD11 Есть бабло на починку питомца! Действуй!")
+            if (!heroState.isPetOk) {
+                onBotEvent(BotEventConstants.BOT_EVENT_PET_BAD_TEXT)
+                val money = heroState.money
+                val neededMoney = heroState.moneyForPetHeal
+                if (neededMoney in 1..money) {
+                    onBotEvent(BotEventConstants.BOT_EVENT_PET_BAD_CAN_HEAL_TEXT)
                 }
             }
         } catch (ex: Exception) {
@@ -123,20 +107,16 @@ class GodvilleBot(
         }
     }
 
-    private fun handlePranaLevel() {
+    private fun handlePranaLevel(heroState: HeroState, settings: BotSettings) {
         try {
-            val currentPranaLevel = heroActionProvider.getCurrentPrana()
-
+            initOrUpdatePranaLimiterIfNeeded(settings)
+            val currentPranaLevel = heroState.pranaLevel
             if (currentPranaLevel < MINIMUM_ACCEPTABLE_PRANA_LEVEL) {
-                if (isPranaAccumulatorEmpty) {
-                    return
-                }
-                if (isPranaExtractionPossible) {
-                    onBotEvent("\uD83D\uDE4F Маловато праны, распаковываем из аккумулятора!")
-                    heroActionProvider.extractPrana()
-                    val now = LocalDateTime.now()
-                    perDayExtractions.add(now)
-                    perHourExtractions.add(now)
+                pranaExtractionLimiter.doRateLimited {
+                    if (!isPranaAccumulatorEmpty(heroState)) {
+                        onBotEvent(BotEventConstants.BOT_EVENT_LOW_PRANA_LEVEL_TEXT)
+                        heroActionProvider.extractPrana()
+                    }
                 }
             }
         } catch (ex: Exception) {
@@ -144,68 +124,30 @@ class GodvilleBot(
         }
     }
 
-    private val isPranaAccumulatorEmpty: Boolean
-        get() = try {
-            val pranaInAccum = heroActionProvider.getAccum()
-            if (pranaInAccum <= 0) {
-                onBotEvent(
-                    "\uD83D\uDED1 В аккумуляторе закончилась прана! Пополни запасы как можно скорее!",
-                    true
-                )
-                logger.warn("No prana in accumulator left!")
-                true
-            } else {
-                false
-            }
-        } catch (ex: Exception) {
-            logger.error(ex) { "Failed to check accumulator!" }
-            false
+    private fun initOrUpdatePranaLimiterIfNeeded(settings: BotSettings) {
+        if (
+            !this::pranaExtractionLimiter.isInitialized ||
+            pranaExtractionLimiter.allowedActions != settings.maxPranaExtractionsPerDay
+        ) {
+            pranaExtractionLimiter = ActionRateLimiter(
+                interval = Duration.ofDays(1),
+                allowedActions = settings.maxPranaExtractionsPerDay
+            )
         }
-
-    private val isPranaExtractionPossible: Boolean
-        get() {
-            if (!botSettingsManager.settings.allowPranaExtract) {
-                onBotEvent("⛔️ Распаковка праны отключена. Поменяй настройки, если необходимо")
-                logger.warn("Prana extraction disabled")
-            }
-            val currentTime = LocalDateTime.now()
-            val maxPerDay = botSettingsManager.settings.maxPranaExtractionsPerDay
-            val maxPerHour = botSettingsManager.settings.maxPranaExtractionsPerHour
-
-            perDayExtractions.removeIf { it.isBefore(currentTime.minusDays(1)) }
-            perHourExtractions.removeIf { it.isBefore(currentTime.minusHours(1)) }
-
-            val perDayExtractionAvailable = perDayExtractions.size < maxPerDay
-            val perHourExtractionAvailable = perHourExtractions.size < maxPerHour
-
-            return if (perDayExtractionAvailable && perHourExtractionAvailable) {
-                true
-            } else {
-                onBotEvent(
-                    """🙅‍♂️ Не получилось распаковать прану - достигнут один из лимитов: 
-                    | Лимит в день: ${!perDayExtractionAvailable}
-                    | Лимит в час: ${!perHourExtractionAvailable}
-                """.trimMargin(), true
-                )
-                logger.warn { "Extraction denied due to limits." }
-                logger.warn { "Per day extraction limit reached: ${!perDayExtractionAvailable}" }
-                logger.warn { "Per hour extraction limit reached: ${!perHourExtractionAvailable}" }
-                false
-            }
-        }
-
-    fun subscribeToBotEvent(listener: BotEventListener) {
-        if (botEventListeners.indexOf(listener) != -1) {
-            logger.warn { "${listener.javaClass} already subscribed" }
-            return
-        }
-        botEventListeners.add(listener)
-        logger.info { "New bot event listener subscribed: ${listener.javaClass}" }
     }
 
-    fun unsubscribeFromBotEvent(listener: BotEventListener) {
-        botEventListeners.remove(listener)
-        logger.info { "Bot event listener unsubscribed: ${listener.javaClass}" }
+    private fun isPranaAccumulatorEmpty(heroState: HeroState): Boolean = try {
+        val pranaInAccum = heroState.pranaInAccumulator
+        if (pranaInAccum <= 0) {
+            onBotEvent(BotEventConstants.BOT_EVENT_PRANA_ACCUM_EMPTY_TEXT, true)
+            logger.warn("No prana in accumulator left!")
+            true
+        } else {
+            false
+        }
+    } catch (ex: Exception) {
+        logger.error(ex) { "Failed to check accumulator!" }
+        false
     }
 
     private fun onBotEvent(
@@ -213,20 +155,16 @@ class GodvilleBot(
         urgent: Boolean = false
     ) {
         val event = BotEvent(message, urgent)
-        BotScope.launch {
-            botEventListeners.forEach {
-                launch { it.invoke(event) }
-            }
-        }
+        eventBus.emitBotEvent(event)
     }
 
     override fun close() {
-        logger.info("Shutting down")
-        isRunning = false
-        while (!stopped) {
-            // do nothing, just wait
-            Thread.sleep(100)
-        }
+        logger.info { "Godville Bot is going to shutdown..." }
+        semaphore.release()
         heroActionProvider.close()
+    }
+
+    suspend fun wait() {
+        semaphore.acquire()
     }
 }
