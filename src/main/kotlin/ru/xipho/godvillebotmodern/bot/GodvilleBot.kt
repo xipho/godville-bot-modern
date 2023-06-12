@@ -54,7 +54,7 @@ class GodvilleBot(
 
     private fun handlePossibleHeroDeath(heroState: HeroState) {
         if (heroState.healthPercent == 0) {
-            onBotEvent(Constants.BOT_EVENT_HERO_DEAD_TEXT, urgent = true)
+            onBotEvent(BotEventConstants.BOT_EVENT_HERO_DEAD_TEXT, urgent = true)
             tryResurrect()
         }
     }
@@ -63,7 +63,7 @@ class GodvilleBot(
         try {
             heroActionProvider.resurrect()
         } catch (ex: Exception) {
-            onBotEvent(Constants.BOT_EVENT_FAILED_RESURRECT_HERO_TEXT, urgent = true)
+            onBotEvent(BotEventConstants.BOT_EVENT_FAILED_RESURRECT_HERO_TEXT, urgent = true)
         }
     }
 
@@ -80,7 +80,7 @@ class GodvilleBot(
                     heroActionProvider.makeGood()
                 } catch (ex: Exception) {
                     logger.error(ex) { "Failed to heal hero" }
-                    onBotEvent(Constants.BOT_EVENT_HEAL_FAILED_TEXT)
+                    onBotEvent(BotEventConstants.BOT_EVENT_HEAL_FAILED_TEXT)
                 }
             } else {
                 logger.warn("Not enough prana to heal hero")
@@ -95,11 +95,11 @@ class GodvilleBot(
         }
         try {
             if (!heroState.isPetOk) {
-                onBotEvent(Constants.BOT_EVENT_PET_BAD_TEXT)
+                onBotEvent(BotEventConstants.BOT_EVENT_PET_BAD_TEXT)
                 val money = heroState.money
                 val neededMoney = heroState.moneyForPetHeal
                 if (neededMoney in 1..money) {
-                    onBotEvent(Constants.BOT_EVENT_PET_BAD_CAN_HEAL_TEXT)
+                    onBotEvent(BotEventConstants.BOT_EVENT_PET_BAD_CAN_HEAL_TEXT)
                 }
             }
         } catch (ex: Exception) {
@@ -114,7 +114,7 @@ class GodvilleBot(
             if (currentPranaLevel < MINIMUM_ACCEPTABLE_PRANA_LEVEL) {
                 pranaExtractionLimiter.doRateLimited {
                     if (!isPranaAccumulatorEmpty(heroState)) {
-                        onBotEvent(Constants.BOT_EVENT_LOW_PRANA_LEVEL_TEXT)
+                        onBotEvent(BotEventConstants.BOT_EVENT_LOW_PRANA_LEVEL_TEXT)
                         heroActionProvider.extractPrana()
                     }
                 }
@@ -139,7 +139,7 @@ class GodvilleBot(
     private fun isPranaAccumulatorEmpty(heroState: HeroState): Boolean = try {
         val pranaInAccum = heroState.pranaInAccumulator
         if (pranaInAccum <= 0) {
-            onBotEvent(Constants.BOT_EVENT_PRANA_ACCUM_EMPTY_TEXT, true)
+            onBotEvent(BotEventConstants.BOT_EVENT_PRANA_ACCUM_EMPTY_TEXT, true)
             logger.warn("No prana in accumulator left!")
             true
         } else {

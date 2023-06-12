@@ -1,32 +1,21 @@
 package ru.xipho.godvillebotmodern.bot.notifications
 
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
-import ru.xipho.godvillebotmodern.bot.api.events.BotEvent
-import ru.xipho.godvillebotmodern.bot.async.NotificationsScope
+import mu.KLogger
+import mu.KotlinLogging
+import ru.xipho.godvillebotmodern.bot.async.NotificationScope
 import ru.xipho.godvillebotmodern.bot.flows.EventBus
 
 class SimpleLoggingNotificationListener(
-    private val eventBus: EventBus
-): AutoCloseable {
+    eventBus: EventBus
+) {
 
-    private val logger = mu.KotlinLogging.logger {  }
-    private val job: Job
+    private val logger: KLogger = KotlinLogging.logger { }
 
     init {
-        job = NotificationsScope.launch {
-            eventBus.botEventFlow.onEach {
-                invoke(it)
-            }
-        }
-    }
-
-    override fun close() {
-        job.cancel()
-    }
-
-    fun invoke(event: BotEvent) {
-        logger.info("Event received: $event")
+        eventBus.botEventFlow.onEach {
+            logger.info("Event received: $it")
+        }.launchIn(NotificationScope)
     }
 }

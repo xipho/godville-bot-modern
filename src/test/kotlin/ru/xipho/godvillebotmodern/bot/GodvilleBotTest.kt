@@ -82,7 +82,7 @@ class GodvilleBotTest {
             bot.close()
 
             events.size shouldBe 1
-            events.any { it.message == Constants.BOT_EVENT_PRANA_ACCUM_EMPTY_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_PRANA_ACCUM_EMPTY_TEXT } shouldBe true
             verify(actionProvider, never()).extractPrana()
         }
     }
@@ -118,7 +118,7 @@ class GodvilleBotTest {
             delay(waitDelay)
             bot.close()
 
-            events.any { it.message == Constants.BOT_EVENT_PET_BAD_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_PET_BAD_TEXT } shouldBe true
         }
     }
 
@@ -153,8 +153,8 @@ class GodvilleBotTest {
             delay(waitDelay)
             bot.close()
 
-            events.any { it.message == Constants.BOT_EVENT_PET_BAD_TEXT } shouldBe true
-            events.any { it.message == Constants.BOT_EVENT_PET_BAD_CAN_HEAL_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_PET_BAD_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_PET_BAD_CAN_HEAL_TEXT } shouldBe true
         }
     }
 
@@ -193,7 +193,7 @@ class GodvilleBotTest {
             delay(waitDelay)
             bot.close()
 
-            events.any { it.message == Constants.BOT_EVENT_HERO_DEAD_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_HERO_DEAD_TEXT } shouldBe true
             verify(actionProvider, atLeast(1)).resurrect()
         }
     }
@@ -233,8 +233,8 @@ class GodvilleBotTest {
             delay(waitDelay)
             bot.close()
 
-            events.any { it.message == Constants.BOT_EVENT_HERO_DEAD_TEXT } shouldBe true
-            events.any { it.message == Constants.BOT_EVENT_FAILED_RESURRECT_HERO_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_HERO_DEAD_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_FAILED_RESURRECT_HERO_TEXT } shouldBe true
             verify(actionProvider, atLeast(1)).resurrect()
         }
     }
@@ -329,7 +329,7 @@ class GodvilleBotTest {
             bot.close()
 
             verify(actionProvider, atLeast(1)).makeGood()
-            events.any { it.message == Constants.BOT_EVENT_HEAL_FAILED_TEXT } shouldBe true
+            events.any { it.message == BotEventConstants.BOT_EVENT_HEAL_FAILED_TEXT } shouldBe true
         }
     }
 }

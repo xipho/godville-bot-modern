@@ -1,17 +1,22 @@
 package ru.xipho.godvillebotmodern.bot.telegram
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import ru.xipho.godvillebotmodern.bot.async.BotScope
 import ru.xipho.godvillebotmodern.bot.flows.EventBus
 import ru.xipho.godvillebotmodern.bot.settings.BotSettingsProvider
+import java.time.Duration
 
 class TelegramGodvilleBotCommandProcessor(
     private val eventBus: EventBus,
     private val telegramWrapper: TelegramWrapper,
     private val botSettingsProvider: BotSettingsProvider,
-): AutoCloseable {
+    private val readMessagesInterval: Duration = Duration.ofSeconds(5)
+) : AutoCloseable {
 
-    private val logger = mu.KotlinLogging.logger {  }
+    private val logger = mu.KotlinLogging.logger { }
     private val job: Job
 
     init {
@@ -23,7 +28,7 @@ class TelegramGodvilleBotCommandProcessor(
                         processCommandMessage(it)
                     }
                 }
-                delay(10000)
+                delay(readMessagesInterval.toMillis())
             }
         }
     }
@@ -33,14 +38,17 @@ class TelegramGodvilleBotCommandProcessor(
         when (val cmd = fullCommand[0]) {
             "/config" -> processConfigCommand(fullCommand[1] to fullCommand[2])
             "/start" -> logger.debug("Bot start command received")
-            "/view-conf" -> {
+            "/viewconf" -> {
                 val config = eventBus.settingsFlow.value
-                telegramWrapper.sendMessage("""[GodvilleBot] Текущий конфиг: 
+                telegramWrapper.sendMessage(
+                    """[GodvilleBot] Текущий конфиг: 
                     |```
                     |$config
                     |```
-                """.trimMargin(), true)
+                """.trimMargin(), true
+                )
             }
+
             else -> {
                 logger.warn("Unsupported command $cmd")
                 telegramWrapper.sendMessage("❌ Передана неизвестная команда $cmd")
@@ -65,9 +73,7 @@ class TelegramGodvilleBotCommandProcessor(
 
     override fun close() {
         logger.info { "Closing telegram command processor" }
-        runBlocking(Dispatchers.IO) {
-            job.cancel()
-        }
+        job.cancel()
         logger.info { "Telegram command processor closed" }
     }
 }
